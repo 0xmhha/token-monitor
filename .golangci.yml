@@ -1,0 +1,35 @@
+linters:
+  enable:
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Vet examines Go source code
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Static analysis
+    - typecheck     # Type checking
+    - unused        # Check for unused code
+    - gocritic      # Comprehensive Go linter
+    - gocyclo       # Cyclomatic complexity
+    - godot         # Check comments end in period
+    - misspell      # Spell checker
+    - prealloc      # Find slice declarations that could be preallocated
+    - unconvert     # Unnecessary type conversions
+    - unparam       # Unused function parameters
+    - gosec         # Security checker
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  errcheck:
+    check-blank: true
+  govet:
+    enable:
+      - shadow
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m
+  tests: true
