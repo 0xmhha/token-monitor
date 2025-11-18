@@ -27,7 +27,11 @@
 //	}
 package session
 
-import "time"
+import (
+	"time"
+
+	bolt "go.etcd.io/bbolt"
+)
 
 // Metadata represents session metadata stored in the database.
 type Metadata struct {
@@ -123,6 +127,11 @@ type Manager interface {
 	//
 	// Returns error if database cannot be closed cleanly.
 	Close() error
+
+	// DB returns the underlying BoltDB instance.
+	//
+	// Returns the database instance for advanced operations.
+	DB() *bolt.DB
 }
 
 // Config contains session manager configuration.

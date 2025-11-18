@@ -375,6 +375,11 @@ func (m *manager) Close() error {
 	return nil
 }
 
+// DB implements Manager.DB.
+func (m *manager) DB() *bolt.DB {
+	return m.db
+}
+
 // isValidUUID performs basic validation on UUID format.
 //
 // Expected format: UUID v4 (8-4-4-4-12 hex digits with dashes)
