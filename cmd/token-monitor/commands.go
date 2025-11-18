@@ -4,15 +4,21 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 
 	"github.com/yourusername/token-monitor/pkg/aggregator"
 	"github.com/yourusername/token-monitor/pkg/config"
 	"github.com/yourusername/token-monitor/pkg/discovery"
 	"github.com/yourusername/token-monitor/pkg/display"
 	"github.com/yourusername/token-monitor/pkg/logger"
+	"github.com/yourusername/token-monitor/pkg/monitor"
 	"github.com/yourusername/token-monitor/pkg/parser"
 	"github.com/yourusername/token-monitor/pkg/reader"
 	"github.com/yourusername/token-monitor/pkg/session"
+	"github.com/yourusername/token-monitor/pkg/watcher"
 )
 
 // statsCommand displays token usage statistics.
@@ -250,4 +256,262 @@ func (c *listCommand) Execute() error {
 	}
 
 	return nil
+}
+
+// watchCommand provides live token usage monitoring.
+type watchCommand struct {
+	sessionID   string
+	refresh     time.Duration
+	format      string
+	clearScreen bool
+	configPath  string
+}
+
+// Execute runs the watch command.
+func (c *watchCommand) Execute() error {
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Initialize logger (quiet mode for live monitoring)
+	log := logger.New(logger.Config{
+		Level:  "error", // Only show errors during live monitoring
+		Format: cfg.Logging.Format,
+		Output: cfg.Logging.Output,
+	})
+
+	// Initialize session manager
+	sessionMgr, err := session.New(session.Config{
+		DBPath: cfg.Storage.DBPath,
+	}, log)
+	if err != nil {
+		return fmt.Errorf("failed to initialize session manager: %w", err)
+	}
+	defer func() {
+		if err := sessionMgr.Close(); err != nil {
+			log.Error("failed to close session manager", "error", err)
+		}
+	}()
+
+	// Initialize position store and reader
+	positionStore, err := reader.NewBoltPositionStore(sessionMgr.DB())
+	if err != nil {
+		return fmt.Errorf("failed to initialize position store: %w", err)
+	}
+
+	r, err := reader.New(reader.Config{
+		PositionStore: positionStore,
+		Parser:        parser.New(),
+	}, log)
+	if err != nil {
+		return fmt.Errorf("failed to initialize reader: %w", err)
+	}
+	defer func() {
+		if err := r.Close(); err != nil {
+			log.Error("failed to close reader", "error", err)
+		}
+	}()
+
+	// Initialize watcher
+	w, err := watcher.New(watcher.Config{
+		DebounceInterval: 100 * time.Millisecond,
+	}, log)
+	if err != nil {
+		return fmt.Errorf("failed to initialize watcher: %w", err)
+	}
+	defer func() {
+		if err := w.Close(); err != nil {
+			log.Error("failed to close watcher", "error", err)
+		}
+	}()
+
+	// Initialize discovery
+	disc := discovery.New(cfg.ClaudeConfigDirs, log)
+
+	// Build session filter
+	var sessionIDs []string
+	if c.sessionID != "" {
+		sessionIDs = []string{c.sessionID}
+	}
+
+	// Create monitor
+	mon, err := monitor.New(monitor.Config{
+		SessionIDs:      sessionIDs,
+		RefreshInterval: c.refresh,
+		ClearScreen:     c.clearScreen,
+	}, w, r, disc, log)
+	if err != nil {
+		return fmt.Errorf("failed to create monitor: %w", err)
+	}
+
+	// Setup signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Start monitor in goroutine
+	errChan := make(chan error, 1)
+	go func() {
+		if err := mon.Start(); err != nil {
+			errChan <- err
+		}
+	}()
+
+	// Display initial message
+	fmt.Println("🔍 Live Token Monitor")
+	fmt.Println("Press Ctrl+C to stop")
+	fmt.Println()
+	if c.sessionID != "" {
+		fmt.Printf("Monitoring session: %s\n", c.sessionID)
+	} else {
+		fmt.Println("Monitoring all sessions")
+	}
+	fmt.Printf("Refresh interval: %s\n", c.refresh)
+	fmt.Println()
+	fmt.Println(strings.Repeat("─", 80))
+	fmt.Println()
+
+	// Type assertion to access Updates method
+	liveMonitor, ok := mon.(interface{ Updates() <-chan monitor.Update })
+	if !ok {
+		return fmt.Errorf("monitor does not support updates channel")
+	}
+
+	// Process updates
+	for {
+		select {
+		case <-sigChan:
+			fmt.Println("\n\nStopping monitor...")
+			if err := mon.Stop(); err != nil {
+				log.Error("failed to stop monitor", "error", err)
+			}
+			return nil
+
+		case err := <-errChan:
+			return fmt.Errorf("monitor error: %w", err)
+
+		case update := <-liveMonitor.Updates():
+			c.displayUpdate(update)
+		}
+	}
+}
+
+// displayUpdate renders a live monitoring update.
+func (c *watchCommand) displayUpdate(update monitor.Update) {
+	// Clear screen if enabled
+	if c.clearScreen {
+		fmt.Print("\033[H\033[2J")
+	}
+
+	// Format based on configured format
+	switch c.format {
+	case "simple":
+		c.displaySimple(update)
+	default:
+		c.displayTable(update)
+	}
+
+	fmt.Println()
+}
+
+// displaySimple shows a simple text format.
+func (c *watchCommand) displaySimple(update monitor.Update) {
+	stats := update.Stats
+	delta := update.Delta
+
+	fmt.Printf("📊 Token Usage Statistics (Last updated: %s)\n\n",
+		update.Timestamp.Format("15:04:05"))
+
+	fmt.Printf("Total Requests:  %d", stats.Count)
+	if delta.NewEntries > 0 {
+		fmt.Printf(" (+%d)", delta.NewEntries)
+	}
+	fmt.Println()
+
+	fmt.Printf("Input Tokens:    %d", stats.InputTokens)
+	if delta.InputTokens > 0 {
+		fmt.Printf(" (+%d)", delta.InputTokens)
+	}
+	fmt.Println()
+
+	fmt.Printf("Output Tokens:   %d", stats.OutputTokens)
+	if delta.OutputTokens > 0 {
+		fmt.Printf(" (+%d)", delta.OutputTokens)
+	}
+	fmt.Println()
+
+	fmt.Printf("Total Tokens:    %d", stats.TotalTokens)
+	if delta.TotalTokens > 0 {
+		fmt.Printf(" (+%d)", delta.TotalTokens)
+	}
+	fmt.Println()
+
+	fmt.Printf("Average/Request: %.0f\n", stats.AvgTokens)
+	fmt.Printf("Min Tokens:      %d\n", stats.MinTokens)
+	fmt.Printf("Max Tokens:      %d\n", stats.MaxTokens)
+
+	if stats.P50Tokens > 0 {
+		fmt.Printf("P50 Tokens:      %d\n", stats.P50Tokens)
+		fmt.Printf("P95 Tokens:      %d\n", stats.P95Tokens)
+		fmt.Printf("P99 Tokens:      %d\n", stats.P99Tokens)
+	}
+
+	if !stats.FirstSeen.IsZero() {
+		fmt.Printf("\nFirst Activity:  %s\n", stats.FirstSeen.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Last Activity:   %s\n", stats.LastSeen.Format("2006-01-02 15:04:05"))
+		duration := stats.LastSeen.Sub(stats.FirstSeen)
+		if duration > 0 {
+			fmt.Printf("Duration:        %s\n", duration.Round(time.Second))
+		}
+	}
+}
+
+// displayTable shows a table format.
+func (c *watchCommand) displayTable(update monitor.Update) {
+	stats := update.Stats
+	delta := update.Delta
+
+	fmt.Printf("📊 Live Token Monitor - %s\n\n",
+		update.Timestamp.Format("2006-01-02 15:04:05"))
+
+	// Token counts table
+	fmt.Println("┌─────────────────┬──────────────┬────────────┐")
+	fmt.Println("│ Metric          │ Total        │ Delta      │")
+	fmt.Println("├─────────────────┼──────────────┼────────────┤")
+	fmt.Printf("│ Requests        │ %12d │ %10d │\n", stats.Count, delta.NewEntries)
+	fmt.Printf("│ Input Tokens    │ %12d │ %10d │\n", stats.InputTokens, delta.InputTokens)
+	fmt.Printf("│ Output Tokens   │ %12d │ %10d │\n", stats.OutputTokens, delta.OutputTokens)
+	fmt.Printf("│ Total Tokens    │ %12d │ %10d │\n", stats.TotalTokens, delta.TotalTokens)
+	fmt.Println("└─────────────────┴──────────────┴────────────┘")
+
+	// Statistics table
+	fmt.Println()
+	fmt.Println("┌─────────────────┬──────────────┐")
+	fmt.Println("│ Statistic       │ Value        │")
+	fmt.Println("├─────────────────┼──────────────┤")
+	fmt.Printf("│ Average         │ %12.0f │\n", stats.AvgTokens)
+	fmt.Printf("│ Min             │ %12d │\n", stats.MinTokens)
+	fmt.Printf("│ Max             │ %12d │\n", stats.MaxTokens)
+
+	if stats.P50Tokens > 0 {
+		fmt.Printf("│ P50             │ %12d │\n", stats.P50Tokens)
+		fmt.Printf("│ P95             │ %12d │\n", stats.P95Tokens)
+		fmt.Printf("│ P99             │ %12d │\n", stats.P99Tokens)
+	}
+	fmt.Println("└─────────────────┴──────────────┘")
+
+	// Activity timeline
+	if !stats.FirstSeen.IsZero() {
+		fmt.Println()
+		fmt.Printf("⏱️  First: %s | Last: %s",
+			stats.FirstSeen.Format("15:04:05"),
+			stats.LastSeen.Format("15:04:05"))
+
+		duration := stats.LastSeen.Sub(stats.FirstSeen)
+		if duration > 0 {
+			fmt.Printf(" | Duration: %s", duration.Round(time.Second))
+		}
+		fmt.Println()
+	}
 }
