@@ -41,6 +41,9 @@ type Update struct {
 	// Delta contains the change since last update
 	Delta DeltaStats
 
+	// Cumulative contains the total change since monitor started
+	Cumulative DeltaStats
+
 	// SessionID being monitored (empty if all sessions)
 	SessionID string
 }

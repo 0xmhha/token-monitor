@@ -1,4 +1,4 @@
-.PHONY: help build test test-race test-coverage lint fmt vet clean install run bench
+.PHONY: help build test test-race test-coverage lint fmt vet clean install run bench watch stats list
 
 # Default target
 .DEFAULT_GOAL := help
@@ -17,7 +17,7 @@ help:
 	@echo "  make <target>"
 	@echo ""
 	@echo "Targets:"
-	@awk 'BEGIN {FS = ":.*##"; printf "\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  %-15s %s\n", $$1, $$2 } /^##@/ { printf "\n%s\n", substr($$0, 5) }' $(MAKEFILE_LIST)
+	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/## /  /'
 
 ## build: Build the binary
 build:
@@ -33,8 +33,20 @@ install:
 	@echo "Installed to $(shell go env GOPATH)/bin/$(BINARY_NAME)"
 
 ## run: Run the application
-run:
-	@go run $(LDFLAGS) ./cmd/token-monitor
+run: build
+	@./$(BUILD_DIR)/$(BINARY_NAME)
+
+## watch: Live monitoring of token usage
+watch: build
+	@./$(BUILD_DIR)/$(BINARY_NAME) watch
+
+## stats: Show token usage statistics
+stats: build
+	@./$(BUILD_DIR)/$(BINARY_NAME) stats
+
+## list: List all discovered sessions
+list: build
+	@./$(BUILD_DIR)/$(BINARY_NAME) list
 
 ## test: Run all tests
 test:

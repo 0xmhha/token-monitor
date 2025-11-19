@@ -27,8 +27,9 @@ type liveMonitor struct {
 	stopChan chan struct{}
 
 	// Aggregation state
-	agg       aggregator.Aggregator
-	lastStats aggregator.Statistics
+	agg          aggregator.Aggregator
+	lastStats    aggregator.Statistics
+	initialStats aggregator.Statistics // Stats at monitor start
 
 	// Update channel for consumers
 	updates chan Update
@@ -219,6 +220,7 @@ func (m *liveMonitor) initialRead(ctx context.Context) error {
 
 	// Store initial stats
 	m.lastStats = m.agg.Stats()
+	m.initialStats = m.lastStats // Save for cumulative calculation
 
 	return nil
 }
@@ -291,14 +293,47 @@ func (m *liveMonitor) periodicUpdates() {
 	ticker := time.NewTicker(m.config.RefreshInterval)
 	defer ticker.Stop()
 
+	ctx := context.Background()
+
 	for {
 		select {
 		case <-m.stopChan:
 			return
 
 		case <-ticker.C:
+			// Read all session files to catch any missed updates
+			m.readAllSessions(ctx)
 			m.sendUpdate()
 		}
+	}
+}
+
+// readAllSessions reads all monitored session files for new data.
+func (m *liveMonitor) readAllSessions(ctx context.Context) {
+	for sessionID, path := range m.sessionPaths {
+		entries, err := m.reader.Read(ctx, path)
+		if err != nil {
+			m.logger.Debug("failed to read session file",
+				"session", sessionID,
+				"path", path,
+				"error", err)
+			continue
+		}
+
+		if len(entries) == 0 {
+			continue
+		}
+
+		// Add entries to aggregator
+		m.mu.Lock()
+		for _, entry := range entries {
+			m.agg.Add(entry)
+		}
+		m.mu.Unlock()
+
+		m.logger.Debug("periodic read complete",
+			"session", sessionID,
+			"new_entries", len(entries))
 	}
 }
 
@@ -309,7 +344,7 @@ func (m *liveMonitor) sendUpdate() {
 
 	currentStats := m.agg.Stats()
 
-	// Calculate delta
+	// Calculate delta (since last update)
 	delta := DeltaStats{
 		NewEntries:   currentStats.Count - m.lastStats.Count,
 		InputTokens:  currentStats.InputTokens - m.lastStats.InputTokens,
@@ -317,10 +352,19 @@ func (m *liveMonitor) sendUpdate() {
 		TotalTokens:  currentStats.TotalTokens - m.lastStats.TotalTokens,
 	}
 
+	// Calculate cumulative (since monitor started)
+	cumulative := DeltaStats{
+		NewEntries:   currentStats.Count - m.initialStats.Count,
+		InputTokens:  currentStats.InputTokens - m.initialStats.InputTokens,
+		OutputTokens: currentStats.OutputTokens - m.initialStats.OutputTokens,
+		TotalTokens:  currentStats.TotalTokens - m.initialStats.TotalTokens,
+	}
+
 	update := Update{
-		Timestamp: time.Now(),
-		Stats:     currentStats,
-		Delta:     delta,
+		Timestamp:  time.Now(),
+		Stats:      currentStats,
+		Delta:      delta,
+		Cumulative: cumulative,
 	}
 
 	// Send update (non-blocking)

@@ -358,31 +358,34 @@ func (c *watchCommand) Execute() error {
 		}
 	}()
 
-	// Display initial message
-	fmt.Println("🔍 Live Token Monitor")
-	fmt.Println("Press Ctrl+C to stop")
-	fmt.Println()
-	if c.sessionID != "" {
-		fmt.Printf("Monitoring session: %s\n", c.sessionID)
-	} else {
-		fmt.Println("Monitoring all sessions")
-	}
-	fmt.Printf("Refresh interval: %s\n", c.refresh)
-	fmt.Println()
-	fmt.Println(strings.Repeat("─", 80))
-	fmt.Println()
-
 	// Type assertion to access Updates method
 	liveMonitor, ok := mon.(interface{ Updates() <-chan monitor.Update })
 	if !ok {
 		return fmt.Errorf("monitor does not support updates channel")
 	}
 
+	// Clear screen and display initial header
+	if c.clearScreen {
+		fmt.Print("\033[2J\033[H")
+	}
+
+	fmt.Println("🔍 Live Token Monitor - Press Ctrl+C to stop")
+	if c.sessionID != "" {
+		fmt.Printf("Session: %s | ", c.sessionID)
+	} else {
+		fmt.Print("All Sessions | ")
+	}
+	fmt.Printf("Refresh: %s\n", c.refresh)
+	fmt.Println(strings.Repeat("─", 80))
+	fmt.Println()
+
 	// Process updates
 	for {
 		select {
 		case <-sigChan:
-			fmt.Println("\n\nStopping monitor...")
+			// Move cursor down and print exit message
+			fmt.Print("\n\n")
+			fmt.Println("Stopping monitor...")
 			if err := mon.Stop(); err != nil {
 				log.Error("failed to stop monitor", "error", err)
 			}
@@ -399,9 +402,10 @@ func (c *watchCommand) Execute() error {
 
 // displayUpdate renders a live monitoring update.
 func (c *watchCommand) displayUpdate(update monitor.Update) {
-	// Clear screen if enabled
+	// Save cursor position, move to line 5 (after header), and clear from there
 	if c.clearScreen {
-		fmt.Print("\033[H\033[2J")
+		// Move cursor to line 5 (after header) and clear from cursor to end
+		fmt.Print("\033[5;1H\033[J")
 	}
 
 	// Format based on configured format
@@ -411,42 +415,27 @@ func (c *watchCommand) displayUpdate(update monitor.Update) {
 	default:
 		c.displayTable(update)
 	}
-
-	fmt.Println()
 }
 
 // displaySimple shows a simple text format.
 func (c *watchCommand) displaySimple(update monitor.Update) {
 	stats := update.Stats
 	delta := update.Delta
+	cumulative := update.Cumulative
 
 	fmt.Printf("📊 Token Usage Statistics (Last updated: %s)\n\n",
 		update.Timestamp.Format("15:04:05"))
 
-	fmt.Printf("Total Requests:  %d", stats.Count)
-	if delta.NewEntries > 0 {
-		fmt.Printf(" (+%d)", delta.NewEntries)
-	}
-	fmt.Println()
+	fmt.Printf("Total Requests:  %d (session: %+d, now: %+d)\n",
+		stats.Count, cumulative.NewEntries, delta.NewEntries)
+	fmt.Printf("Input Tokens:    %d (session: %+d, now: %+d)\n",
+		stats.InputTokens, cumulative.InputTokens, delta.InputTokens)
+	fmt.Printf("Output Tokens:   %d (session: %+d, now: %+d)\n",
+		stats.OutputTokens, cumulative.OutputTokens, delta.OutputTokens)
+	fmt.Printf("Total Tokens:    %d (session: %+d, now: %+d)\n",
+		stats.TotalTokens, cumulative.TotalTokens, delta.TotalTokens)
 
-	fmt.Printf("Input Tokens:    %d", stats.InputTokens)
-	if delta.InputTokens > 0 {
-		fmt.Printf(" (+%d)", delta.InputTokens)
-	}
 	fmt.Println()
-
-	fmt.Printf("Output Tokens:   %d", stats.OutputTokens)
-	if delta.OutputTokens > 0 {
-		fmt.Printf(" (+%d)", delta.OutputTokens)
-	}
-	fmt.Println()
-
-	fmt.Printf("Total Tokens:    %d", stats.TotalTokens)
-	if delta.TotalTokens > 0 {
-		fmt.Printf(" (+%d)", delta.TotalTokens)
-	}
-	fmt.Println()
-
 	fmt.Printf("Average/Request: %.0f\n", stats.AvgTokens)
 	fmt.Printf("Min Tokens:      %d\n", stats.MinTokens)
 	fmt.Printf("Max Tokens:      %d\n", stats.MaxTokens)
@@ -471,19 +460,20 @@ func (c *watchCommand) displaySimple(update monitor.Update) {
 func (c *watchCommand) displayTable(update monitor.Update) {
 	stats := update.Stats
 	delta := update.Delta
+	cumulative := update.Cumulative
 
 	fmt.Printf("📊 Live Token Monitor - %s\n\n",
 		update.Timestamp.Format("2006-01-02 15:04:05"))
 
-	// Token counts table
-	fmt.Println("┌─────────────────┬──────────────┬────────────┐")
-	fmt.Println("│ Metric          │ Total        │ Delta      │")
-	fmt.Println("├─────────────────┼──────────────┼────────────┤")
-	fmt.Printf("│ Requests        │ %12d │ %10d │\n", stats.Count, delta.NewEntries)
-	fmt.Printf("│ Input Tokens    │ %12d │ %10d │\n", stats.InputTokens, delta.InputTokens)
-	fmt.Printf("│ Output Tokens   │ %12d │ %10d │\n", stats.OutputTokens, delta.OutputTokens)
-	fmt.Printf("│ Total Tokens    │ %12d │ %10d │\n", stats.TotalTokens, delta.TotalTokens)
-	fmt.Println("└─────────────────┴──────────────┴────────────┘")
+	// Token counts table with session cumulative and real-time delta
+	fmt.Println("┌─────────────────┬──────────────┬──────────────┬────────────┐")
+	fmt.Println("│ Metric          │ Total        │ Session +    │ Now +      │")
+	fmt.Println("├─────────────────┼──────────────┼──────────────┼────────────┤")
+	fmt.Printf("│ Requests        │ %12d │ %+12d │ %+10d │\n", stats.Count, cumulative.NewEntries, delta.NewEntries)
+	fmt.Printf("│ Input Tokens    │ %12d │ %+12d │ %+10d │\n", stats.InputTokens, cumulative.InputTokens, delta.InputTokens)
+	fmt.Printf("│ Output Tokens   │ %12d │ %+12d │ %+10d │\n", stats.OutputTokens, cumulative.OutputTokens, delta.OutputTokens)
+	fmt.Printf("│ Total Tokens    │ %12d │ %+12d │ %+10d │\n", stats.TotalTokens, cumulative.TotalTokens, delta.TotalTokens)
+	fmt.Println("└─────────────────┴──────────────┴──────────────┴────────────┘")
 
 	// Statistics table
 	fmt.Println()
