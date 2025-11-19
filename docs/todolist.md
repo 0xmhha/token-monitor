@@ -102,15 +102,15 @@
   - [ ] Tags
   - [ ] Description
 - [x] Implement SessionManager
-  - [ ] `SetName(uuid, name)` - Assign friendly name
-  - [ ] `GetByName(name)` - Lookup by name
+  - [x] `SetName(uuid, name)` - Assign friendly name
+  - [x] `GetByName(name)` - Lookup by name
   - [x] `GetByUUID(uuid)` - Lookup by UUID
   - [x] `List()` - List all sessions
-  - [ ] `Delete(uuid)` - Remove session
-  - [ ] `Update(uuid, metadata)` - Update metadata
-- [ ] Add indexing for fast lookups
+  - [x] `Delete(uuid)` - Remove session
+  - [x] `Update(uuid, metadata)` - Update metadata
+- [x] Add indexing for fast lookups
   - [x] UUID index
-  - [ ] Name index (unique constraint)
+  - [x] Name index (unique constraint)
   - [ ] Project path index
 - [ ] Implement database migrations
 - [ ] Add data backup/restore functionality
@@ -185,7 +185,7 @@
   - [x] `ProcessEntry(entry)` - Update stats
   - [x] `GetSessionStats(id)` - Retrieve stats
   - [x] `GetAllSessions()` - List all
-  - [ ] `CalculateBurnRate(id, window)` - Compute rate
+  - [x] `CalculateBurnRate(id, window)` - Compute rate
 - [ ] Add billing block detection
   - [ ] UTC-based 5-hour windows
   - [ ] Detect block boundaries
@@ -194,10 +194,10 @@
   - [x] Sum by type (input, output, cache creation, cache read)
   - [x] Calculate total tokens
   - [ ] Compute costs (future: integrate pricing)
-- [ ] Add burn rate calculation
-  - [ ] Tokens per minute
-  - [ ] Sliding window average
-  - [ ] Projection to limit
+- [x] Add burn rate calculation
+  - [x] Tokens per minute
+  - [x] Sliding window average
+  - [x] Projection to limit
 - [ ] Implement caching
   - [ ] LRU cache for session stats
   - [ ] Cache size limit (100 sessions)
@@ -237,7 +237,7 @@
   - [x] `watch [flags]` - Live monitoring
   - [x] `list` - List all sessions
   - [x] `stats` - Display token statistics
-  - [ ] `session` - Session management subcommands
+  - [x] `session` - Session management subcommands
   - [ ] `config` - Configuration management
 - [x] Implement global flags
   - [x] `--config` - Custom config file
@@ -269,25 +269,26 @@
   - [ ] `?` - Show help
 - [ ] Write monitor command tests
 
-### 4.3 Session Management Commands
-- [ ] Implement `session list`
-  - [ ] Display all sessions with metadata
-  - [ ] Table format with columns: UUID, Name, Project, Last Activity, Tokens
-  - [ ] Sort options (by name, date, tokens)
+### 4.3 Session Management Commands ✅
+- [x] Implement `session list`
+  - [x] Display all sessions with metadata
+  - [x] Table format with columns: UUID, Name, Project, Last Activity
+  - [x] Sort options (by name, date, uuid)
   - [ ] Filter options (by project, date range)
-- [ ] Implement `session name <uuid> <name>`
-  - [ ] Assign friendly name to session
-  - [ ] Validate name uniqueness
-  - [ ] Update database
-- [ ] Implement `session show <name|uuid>`
-  - [ ] Display detailed session info
+- [x] Implement `session name <uuid> <name>`
+  - [x] Assign friendly name to session
+  - [x] Validate name uniqueness
+  - [x] Update database
+  - [x] Auto-create session if not exists
+- [x] Implement `session show <name|uuid>`
+  - [x] Display detailed session info
   - [ ] Token breakdown by type
   - [ ] Billing blocks
   - [ ] Activity timeline
-- [ ] Implement `session delete <name|uuid>`
-  - [ ] Remove session metadata
-  - [ ] Confirmation prompt
-  - [ ] Preserve JSONL data (read-only)
+- [x] Implement `session delete <name|uuid>`
+  - [x] Remove session metadata
+  - [x] Confirmation prompt
+  - [x] Preserve JSONL data (read-only)
 - [ ] Implement `session export <name|uuid>`
   - [ ] Export session data to CSV/JSON
   - [ ] Include all metrics and metadata

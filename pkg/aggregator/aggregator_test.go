@@ -629,3 +629,238 @@ func TestGroupedStats_ByHour(t *testing.T) {
 		t.Errorf("Current hour Count = %d, want 2", currentHourStats.Count)
 	}
 }
+
+
+func TestBurnRate_EmptyAggregator(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	rate := agg.BurnRate("", 5*time.Minute)
+	if rate.EntryCount != 0 {
+		t.Errorf("BurnRate().EntryCount = %d, want 0", rate.EntryCount)
+	}
+	if rate.TokensPerMinute != 0 {
+		t.Errorf("BurnRate().TokensPerMinute = %f, want 0", rate.TokensPerMinute)
+	}
+}
+
+func TestBurnRate_AllSessions(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	now := time.Now()
+	entries := []parser.UsageEntry{
+		{
+			SessionID: "session-1",
+			Timestamp: now.Add(-4 * time.Minute),
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 100, OutputTokens: 50},
+			},
+		},
+		{
+			SessionID: "session-2",
+			Timestamp: now.Add(-2 * time.Minute),
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 200, OutputTokens: 100},
+			},
+		},
+		{
+			SessionID: "session-1",
+			Timestamp: now.Add(-1 * time.Minute),
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 150, OutputTokens: 75},
+			},
+		},
+	}
+
+	for _, entry := range entries {
+		agg.Add(entry)
+	}
+
+	// Calculate burn rate over 5 minute window
+	rate := agg.BurnRate("", 5*time.Minute)
+
+	if rate.EntryCount != 3 {
+		t.Errorf("BurnRate().EntryCount = %d, want 3", rate.EntryCount)
+	}
+	if rate.TotalTokens != 675 {
+		t.Errorf("BurnRate().TotalTokens = %d, want 675", rate.TotalTokens)
+	}
+
+	// 675 tokens / 5 minutes = 135 tokens per minute
+	expectedRate := 135.0
+	if rate.TokensPerMinute != expectedRate {
+		t.Errorf("BurnRate().TokensPerMinute = %f, want %f", rate.TokensPerMinute, expectedRate)
+	}
+
+	// 135 * 60 = 8100 tokens per hour
+	if rate.TokensPerHour != 8100.0 {
+		t.Errorf("BurnRate().TokensPerHour = %f, want 8100", rate.TokensPerHour)
+	}
+
+	if rate.ProjectedHourlyTokens != 8100 {
+		t.Errorf("BurnRate().ProjectedHourlyTokens = %d, want 8100", rate.ProjectedHourlyTokens)
+	}
+}
+
+func TestBurnRate_SpecificSession(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	now := time.Now()
+	entries := []parser.UsageEntry{
+		{
+			SessionID: "session-1",
+			Timestamp: now.Add(-4 * time.Minute),
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 100, OutputTokens: 50},
+			},
+		},
+		{
+			SessionID: "session-2",
+			Timestamp: now.Add(-2 * time.Minute),
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 200, OutputTokens: 100},
+			},
+		},
+		{
+			SessionID: "session-1",
+			Timestamp: now.Add(-1 * time.Minute),
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 150, OutputTokens: 75},
+			},
+		},
+	}
+
+	for _, entry := range entries {
+		agg.Add(entry)
+	}
+
+	// Calculate burn rate for session-1 only
+	rate := agg.BurnRate("session-1", 5*time.Minute)
+
+	if rate.EntryCount != 2 {
+		t.Errorf("BurnRate().EntryCount = %d, want 2", rate.EntryCount)
+	}
+	if rate.TotalTokens != 375 {
+		t.Errorf("BurnRate().TotalTokens = %d, want 375", rate.TotalTokens)
+	}
+
+	// 375 tokens / 5 minutes = 75 tokens per minute
+	expectedRate := 75.0
+	if rate.TokensPerMinute != expectedRate {
+		t.Errorf("BurnRate().TokensPerMinute = %f, want %f", rate.TokensPerMinute, expectedRate)
+	}
+}
+
+func TestBurnRate_WindowFiltering(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	now := time.Now()
+	entries := []parser.UsageEntry{
+		{
+			SessionID: "session-1",
+			Timestamp: now.Add(-10 * time.Minute), // Outside window
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 1000, OutputTokens: 500},
+			},
+		},
+		{
+			SessionID: "session-1",
+			Timestamp: now.Add(-2 * time.Minute), // Inside window
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 100, OutputTokens: 50},
+			},
+		},
+	}
+
+	for _, entry := range entries {
+		agg.Add(entry)
+	}
+
+	// Calculate burn rate over 5 minute window (should exclude old entry)
+	rate := agg.BurnRate("", 5*time.Minute)
+
+	if rate.EntryCount != 1 {
+		t.Errorf("BurnRate().EntryCount = %d, want 1", rate.EntryCount)
+	}
+	if rate.TotalTokens != 150 {
+		t.Errorf("BurnRate().TotalTokens = %d, want 150", rate.TotalTokens)
+	}
+}
+
+func TestBurnRate_InputOutputBreakdown(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	now := time.Now()
+	entry := parser.UsageEntry{
+		SessionID: "session-1",
+		Timestamp: now.Add(-2 * time.Minute),
+		Message: parser.Message{
+			Model: "claude-3-5-sonnet-20241022",
+			Usage: parser.Usage{InputTokens: 200, OutputTokens: 100},
+		},
+	}
+
+	agg.Add(entry)
+
+	rate := agg.BurnRate("", 5*time.Minute)
+
+	// 200 input / 5 min = 40 per minute
+	if rate.InputTokensPerMinute != 40.0 {
+		t.Errorf("BurnRate().InputTokensPerMinute = %f, want 40", rate.InputTokensPerMinute)
+	}
+
+	// 100 output / 5 min = 20 per minute
+	if rate.OutputTokensPerMinute != 20.0 {
+		t.Errorf("BurnRate().OutputTokensPerMinute = %f, want 20", rate.OutputTokensPerMinute)
+	}
+}
+
+func TestBurnRate_Reset(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	now := time.Now()
+	entry := parser.UsageEntry{
+		SessionID: "session-1",
+		Timestamp: now.Add(-1 * time.Minute),
+		Message: parser.Message{
+			Model: "claude-3-5-sonnet-20241022",
+			Usage: parser.Usage{InputTokens: 100, OutputTokens: 50},
+		},
+	}
+
+	agg.Add(entry)
+
+	// Verify entry exists
+	rate := agg.BurnRate("", 5*time.Minute)
+	if rate.EntryCount != 1 {
+		t.Errorf("Before reset: BurnRate().EntryCount = %d, want 1", rate.EntryCount)
+	}
+
+	// Reset
+	agg.Reset()
+
+	// Verify entry is gone
+	rate = agg.BurnRate("", 5*time.Minute)
+	if rate.EntryCount != 0 {
+		t.Errorf("After reset: BurnRate().EntryCount = %d, want 0", rate.EntryCount)
+	}
+}

@@ -74,6 +74,16 @@ type Aggregator interface {
 	//   - Slice of session statistics, sorted by total tokens descending
 	TopSessions(n int) []SessionStats
 
+	// BurnRate calculates token consumption rate over a time window.
+	//
+	// Parameters:
+	//   - sessionID: Session to calculate rate for (empty for all sessions)
+	//   - window: Time window duration for rate calculation
+	//
+	// Returns:
+	//   - BurnRate metrics for the specified window
+	BurnRate(sessionID string, window time.Duration) BurnRate
+
 	// Reset clears all aggregated data.
 	Reset()
 }
@@ -130,6 +140,42 @@ type SessionStats struct {
 
 	// Statistics contains aggregated stats for this session.
 	Statistics Statistics
+}
+
+// BurnRate contains token consumption rate metrics.
+type BurnRate struct {
+	// TokensPerMinute is the average token consumption rate.
+	TokensPerMinute float64
+
+	// TokensPerHour is the hourly projection.
+	TokensPerHour float64
+
+	// InputTokensPerMinute is input token rate.
+	InputTokensPerMinute float64
+
+	// OutputTokensPerMinute is output token rate.
+	OutputTokensPerMinute float64
+
+	// WindowDuration is the time window used for calculation.
+	WindowDuration time.Duration
+
+	// EntryCount is number of entries in the window.
+	EntryCount int
+
+	// TotalTokens is total tokens in the window.
+	TotalTokens int
+
+	// ProjectedHourlyTokens is projected tokens for one hour.
+	ProjectedHourlyTokens int
+}
+
+// TimestampedEntry stores an entry with its timestamp for burn rate calculation.
+type TimestampedEntry struct {
+	Timestamp    time.Time
+	TotalTokens  int
+	InputTokens  int
+	OutputTokens int
+	SessionID    string
 }
 
 // Config contains aggregator configuration.

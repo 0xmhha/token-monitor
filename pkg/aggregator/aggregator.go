@@ -3,6 +3,7 @@ package aggregator
 import (
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/yourusername/token-monitor/pkg/parser"
 )
@@ -11,10 +12,11 @@ import (
 type aggregator struct {
 	config Config
 
-	mu     sync.RWMutex
-	counts []int             // All token counts for percentile calculation
-	stats  Statistics        // Overall statistics
-	groups map[string]*group // Grouped statistics
+	mu      sync.RWMutex
+	counts  []int               // All token counts for percentile calculation
+	stats   Statistics          // Overall statistics
+	groups  map[string]*group   // Grouped statistics
+	entries []TimestampedEntry  // All entries for burn rate calculation
 }
 
 // group holds statistics for a specific dimension combination.
@@ -36,9 +38,10 @@ func New(cfg Config) Aggregator {
 	}
 
 	return &aggregator{
-		config: cfg,
-		counts: make([]int, 0),
-		groups: make(map[string]*group),
+		config:  cfg,
+		counts:  make([]int, 0),
+		groups:  make(map[string]*group),
+		entries: make([]TimestampedEntry, 0),
 	}
 }
 
@@ -58,6 +61,15 @@ func (a *aggregator) Add(entry parser.UsageEntry) {
 	if a.config.TrackPercentiles {
 		a.counts = append(a.counts, total)
 	}
+
+	// Store timestamped entry for burn rate calculation.
+	a.entries = append(a.entries, TimestampedEntry{
+		Timestamp:    entry.Timestamp,
+		TotalTokens:  total,
+		InputTokens:  input,
+		OutputTokens: output,
+		SessionID:    entry.SessionID,
+	})
 
 	// Update grouped stats.
 	if len(a.config.GroupBy) > 0 {
@@ -196,6 +208,73 @@ func (a *aggregator) Reset() {
 	a.counts = make([]int, 0)
 	a.stats = Statistics{}
 	a.groups = make(map[string]*group)
+	a.entries = make([]TimestampedEntry, 0)
+}
+
+// BurnRate implements Aggregator.BurnRate.
+func (a *aggregator) BurnRate(sessionID string, window time.Duration) BurnRate {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	if len(a.entries) == 0 {
+		return BurnRate{WindowDuration: window}
+	}
+
+	// Default window to time since first entry if not specified.
+	if window == 0 {
+		window = time.Since(a.entries[0].Timestamp)
+		if window == 0 {
+			return BurnRate{WindowDuration: window}
+		}
+	}
+
+	now := time.Now()
+	cutoff := now.Add(-window)
+
+	var totalTokens, inputTokens, outputTokens, entryCount int
+
+	// Filter entries within the window.
+	for _, entry := range a.entries {
+		// Filter by session if specified.
+		if sessionID != "" && entry.SessionID != sessionID {
+			continue
+		}
+
+		// Filter by time window.
+		if entry.Timestamp.Before(cutoff) {
+			continue
+		}
+
+		totalTokens += entry.TotalTokens
+		inputTokens += entry.InputTokens
+		outputTokens += entry.OutputTokens
+		entryCount++
+	}
+
+	if entryCount == 0 {
+		return BurnRate{WindowDuration: window}
+	}
+
+	// Calculate rates.
+	minutes := window.Minutes()
+	if minutes == 0 {
+		minutes = 1 // Avoid division by zero
+	}
+
+	tokensPerMinute := float64(totalTokens) / minutes
+	inputPerMinute := float64(inputTokens) / minutes
+	outputPerMinute := float64(outputTokens) / minutes
+
+	return BurnRate{
+		TokensPerMinute:       tokensPerMinute,
+		TokensPerHour:         tokensPerMinute * 60,
+		InputTokensPerMinute:  inputPerMinute,
+		OutputTokensPerMinute: outputPerMinute,
+		WindowDuration:        window,
+		EntryCount:            entryCount,
+		TotalTokens:           totalTokens,
+		ProjectedHourlyTokens: int(tokensPerMinute * 60),
+	}
 }
 
 // updateStats updates statistics with a new entry.
