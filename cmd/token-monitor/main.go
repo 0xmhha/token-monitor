@@ -111,7 +111,7 @@ func runWatchCommand(configPath string, args []string) error {
 	sessionID := fs.String("session", "", "monitor specific session ID")
 	refresh := fs.Duration("refresh", time.Second, "refresh interval (e.g., 1s, 500ms)")
 	format := fs.String("format", "table", "output format (table, simple)")
-	clearScreen := fs.Bool("clear", true, "clear screen between updates")
+	history := fs.Bool("history", false, "keep history of updates (append mode)")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -121,7 +121,7 @@ func runWatchCommand(configPath string, args []string) error {
 		sessionID:   *sessionID,
 		refresh:     *refresh,
 		format:      *format,
-		clearScreen: *clearScreen,
+		clearScreen: !*history, // clear screen unless history mode
 		configPath:  configPath,
 	}
 
@@ -157,7 +157,7 @@ Watch Command Flags:
   -session    Monitor specific session ID
   -refresh    Refresh interval (default: 1s, e.g., 500ms, 2s)
   -format     Output format (table, simple)
-  -clear      Clear screen between updates (default: true)
+  -history    Keep history of updates (append mode, default: false)
 
 Examples:
   # Show overall statistics
@@ -189,6 +189,9 @@ Examples:
 
   # Live monitoring in simple format
   token-monitor watch -format simple
+
+  # Live monitoring with history (append mode)
+  token-monitor watch -history
 
 Version: %s
 `

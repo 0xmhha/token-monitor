@@ -30,6 +30,7 @@ type liveMonitor struct {
 	agg          aggregator.Aggregator
 	lastStats    aggregator.Statistics
 	initialStats aggregator.Statistics // Stats at monitor start
+	lastDelta    DeltaStats            // Last non-zero delta for "now" display
 
 	// Update channel for consumers
 	updates chan Update
@@ -131,6 +132,9 @@ func (m *liveMonitor) Start() error {
 	// Start periodic updates
 	go m.periodicUpdates()
 
+	// Send initial update immediately
+	m.sendUpdate()
+
 	m.logger.Info("live monitor started")
 	return nil
 }
@@ -199,6 +203,14 @@ func (m *liveMonitor) filterSessions(sessions []discovery.SessionFile) []discove
 // initialRead reads all session files from the beginning.
 func (m *liveMonitor) initialRead(ctx context.Context) error {
 	for sessionID, path := range m.sessionPaths {
+		// Reset position to read from beginning
+		if err := m.reader.Reset(path); err != nil {
+			m.logger.Warn("failed to reset position",
+				"session", sessionID,
+				"path", path,
+				"error", err)
+		}
+
 		entries, err := m.reader.Read(ctx, path)
 		if err != nil {
 			m.logger.Warn("failed to read session file",
@@ -360,10 +372,16 @@ func (m *liveMonitor) sendUpdate() {
 		TotalTokens:  currentStats.TotalTokens - m.initialStats.TotalTokens,
 	}
 
+	// Update lastDelta only if there was a change (for "now" display)
+	// This keeps showing the last change until a new change occurs
+	if delta.TotalTokens > 0 || delta.NewEntries > 0 {
+		m.lastDelta = delta
+	}
+
 	update := Update{
 		Timestamp:  time.Now(),
 		Stats:      currentStats,
-		Delta:      delta,
+		Delta:      m.lastDelta, // Use last non-zero delta
 		Cumulative: cumulative,
 	}
 
