@@ -277,6 +277,106 @@ func (a *aggregator) BurnRate(sessionID string, window time.Duration) BurnRate {
 	}
 }
 
+// BillingBlocks implements Aggregator.BillingBlocks.
+func (a *aggregator) BillingBlocks(sessionID string) []BillingBlock {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	if len(a.entries) == 0 {
+		return nil
+	}
+
+	// Group entries by billing block.
+	blocks := make(map[time.Time]*BillingBlock)
+	now := time.Now().UTC()
+	currentBlockStart := getBillingBlockStart(now)
+
+	for _, entry := range a.entries {
+		// Filter by session if specified.
+		if sessionID != "" && entry.SessionID != sessionID {
+			continue
+		}
+
+		blockStart := getBillingBlockStart(entry.Timestamp.UTC())
+		block, exists := blocks[blockStart]
+		if !exists {
+			block = &BillingBlock{
+				StartTime: blockStart,
+				EndTime:   blockStart.Add(5 * time.Hour),
+				IsActive:  blockStart.Equal(currentBlockStart),
+			}
+			blocks[blockStart] = block
+		}
+
+		block.TotalTokens += entry.TotalTokens
+		block.InputTokens += entry.InputTokens
+		block.OutputTokens += entry.OutputTokens
+		block.EntryCount++
+	}
+
+	// Convert to slice and sort by start time (most recent first).
+	result := make([]BillingBlock, 0, len(blocks))
+	for _, block := range blocks {
+		result = append(result, *block)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].StartTime.After(result[j].StartTime)
+	})
+
+	return result
+}
+
+// CurrentBillingBlock implements Aggregator.CurrentBillingBlock.
+func (a *aggregator) CurrentBillingBlock(sessionID string) BillingBlock {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	now := time.Now().UTC()
+	blockStart := getBillingBlockStart(now)
+	blockEnd := blockStart.Add(5 * time.Hour)
+
+	block := BillingBlock{
+		StartTime: blockStart,
+		EndTime:   blockEnd,
+		IsActive:  true,
+	}
+
+	for _, entry := range a.entries {
+		// Filter by session if specified.
+		if sessionID != "" && entry.SessionID != sessionID {
+			continue
+		}
+
+		// Check if entry is in current block.
+		entryUTC := entry.Timestamp.UTC()
+		if entryUTC.Before(blockStart) || !entryUTC.Before(blockEnd) {
+			continue
+		}
+
+		block.TotalTokens += entry.TotalTokens
+		block.InputTokens += entry.InputTokens
+		block.OutputTokens += entry.OutputTokens
+		block.EntryCount++
+	}
+
+	return block
+}
+
+// getBillingBlockStart returns the start time of the 5-hour billing block
+// that contains the given time. Blocks are aligned to UTC midnight.
+func getBillingBlockStart(t time.Time) time.Time {
+	utc := t.UTC()
+	hour := utc.Hour()
+	blockIndex := hour / 5 // 0, 1, 2, 3, 4 for hours 0-4, 5-9, 10-14, 15-19, 20-24
+	blockStartHour := blockIndex * 5
+
+	return time.Date(
+		utc.Year(), utc.Month(), utc.Day(),
+		blockStartHour, 0, 0, 0, time.UTC,
+	)
+}
+
 // updateStats updates statistics with a new entry.
 func (a *aggregator) updateStats(stats *Statistics, entry parser.UsageEntry, total, input, output int) {
 	// Update counts.

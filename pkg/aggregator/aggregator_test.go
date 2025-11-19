@@ -864,3 +864,202 @@ func TestBurnRate_Reset(t *testing.T) {
 		t.Errorf("After reset: BurnRate().EntryCount = %d, want 0", rate.EntryCount)
 	}
 }
+
+func TestBillingBlocks_Empty(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	blocks := agg.BillingBlocks("")
+	if blocks != nil {
+		t.Errorf("BillingBlocks() = %v, want nil", blocks)
+	}
+}
+
+func TestBillingBlocks_SingleBlock(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	now := time.Now()
+	entry := parser.UsageEntry{
+		SessionID: "session-1",
+		Timestamp: now,
+		Message: parser.Message{
+			Model: "claude-3-5-sonnet-20241022",
+			Usage: parser.Usage{InputTokens: 100, OutputTokens: 50},
+		},
+	}
+
+	agg.Add(entry)
+
+	blocks := agg.BillingBlocks("")
+	if len(blocks) != 1 {
+		t.Fatalf("BillingBlocks() returned %d blocks, want 1", len(blocks))
+	}
+
+	if blocks[0].TotalTokens != 150 {
+		t.Errorf("Block.TotalTokens = %d, want 150", blocks[0].TotalTokens)
+	}
+	if blocks[0].EntryCount != 1 {
+		t.Errorf("Block.EntryCount = %d, want 1", blocks[0].EntryCount)
+	}
+	if !blocks[0].IsActive {
+		t.Error("Block.IsActive = false, want true")
+	}
+}
+
+func TestBillingBlocks_MultipleBlocks(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	now := time.Now().UTC()
+	// Entry in current block
+	entry1 := parser.UsageEntry{
+		SessionID: "session-1",
+		Timestamp: now,
+		Message: parser.Message{
+			Model: "claude-3-5-sonnet-20241022",
+			Usage: parser.Usage{InputTokens: 100, OutputTokens: 50},
+		},
+	}
+	// Entry 6 hours ago (different block)
+	entry2 := parser.UsageEntry{
+		SessionID: "session-1",
+		Timestamp: now.Add(-6 * time.Hour),
+		Message: parser.Message{
+			Model: "claude-3-5-sonnet-20241022",
+			Usage: parser.Usage{InputTokens: 200, OutputTokens: 100},
+		},
+	}
+
+	agg.Add(entry1)
+	agg.Add(entry2)
+
+	blocks := agg.BillingBlocks("")
+	if len(blocks) != 2 {
+		t.Fatalf("BillingBlocks() returned %d blocks, want 2", len(blocks))
+	}
+
+	// Most recent block should be first
+	if !blocks[0].IsActive {
+		t.Error("First block should be active")
+	}
+	if blocks[0].TotalTokens != 150 {
+		t.Errorf("Active block TotalTokens = %d, want 150", blocks[0].TotalTokens)
+	}
+	if blocks[1].TotalTokens != 300 {
+		t.Errorf("Previous block TotalTokens = %d, want 300", blocks[1].TotalTokens)
+	}
+}
+
+func TestBillingBlocks_SessionFilter(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	now := time.Now()
+	entries := []parser.UsageEntry{
+		{
+			SessionID: "session-1",
+			Timestamp: now,
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 100, OutputTokens: 50},
+			},
+		},
+		{
+			SessionID: "session-2",
+			Timestamp: now,
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{InputTokens: 200, OutputTokens: 100},
+			},
+		},
+	}
+
+	for _, entry := range entries {
+		agg.Add(entry)
+	}
+
+	// Filter by session-1
+	blocks := agg.BillingBlocks("session-1")
+	if len(blocks) != 1 {
+		t.Fatalf("BillingBlocks() returned %d blocks, want 1", len(blocks))
+	}
+	if blocks[0].TotalTokens != 150 {
+		t.Errorf("Block.TotalTokens = %d, want 150", blocks[0].TotalTokens)
+	}
+}
+
+func TestCurrentBillingBlock(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{})
+
+	now := time.Now()
+	// Entry in current block
+	entry1 := parser.UsageEntry{
+		SessionID: "session-1",
+		Timestamp: now,
+		Message: parser.Message{
+			Model: "claude-3-5-sonnet-20241022",
+			Usage: parser.Usage{InputTokens: 100, OutputTokens: 50},
+		},
+	}
+	// Entry 6 hours ago (different block - should be excluded)
+	entry2 := parser.UsageEntry{
+		SessionID: "session-1",
+		Timestamp: now.Add(-6 * time.Hour),
+		Message: parser.Message{
+			Model: "claude-3-5-sonnet-20241022",
+			Usage: parser.Usage{InputTokens: 1000, OutputTokens: 500},
+		},
+	}
+
+	agg.Add(entry1)
+	agg.Add(entry2)
+
+	block := agg.CurrentBillingBlock("")
+
+	if !block.IsActive {
+		t.Error("CurrentBillingBlock.IsActive = false, want true")
+	}
+	if block.TotalTokens != 150 {
+		t.Errorf("CurrentBillingBlock.TotalTokens = %d, want 150", block.TotalTokens)
+	}
+	if block.EntryCount != 1 {
+		t.Errorf("CurrentBillingBlock.EntryCount = %d, want 1", block.EntryCount)
+	}
+}
+
+func TestGetBillingBlockStart(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		hour     int
+		expected int
+	}{
+		{0, 0},
+		{1, 0},
+		{4, 0},
+		{5, 5},
+		{9, 5},
+		{10, 10},
+		{14, 10},
+		{15, 15},
+		{19, 15},
+		{20, 20},
+		{23, 20},
+	}
+
+	for _, tc := range tests {
+		input := time.Date(2024, 1, 15, tc.hour, 30, 0, 0, time.UTC)
+		result := getBillingBlockStart(input)
+		if result.Hour() != tc.expected {
+			t.Errorf("getBillingBlockStart(%d:30) = %d:00, want %d:00",
+				tc.hour, result.Hour(), tc.expected)
+		}
+	}
+}

@@ -179,17 +179,17 @@
 ### 3.3 Token Aggregator (`pkg/aggregator`) ✅
 - [x] Define aggregation data structures
   - [x] `SessionStats` - Per-session aggregation
-  - [ ] `BillingBlock` - 5-hour billing windows
+  - [x] `BillingBlock` - 5-hour billing windows
   - [x] `TokenBreakdown` - By token type
 - [x] Implement Aggregator
   - [x] `ProcessEntry(entry)` - Update stats
   - [x] `GetSessionStats(id)` - Retrieve stats
   - [x] `GetAllSessions()` - List all
   - [x] `CalculateBurnRate(id, window)` - Compute rate
-- [ ] Add billing block detection
-  - [ ] UTC-based 5-hour windows
-  - [ ] Detect block boundaries
-  - [ ] Track active vs. inactive blocks
+- [x] Add billing block detection
+  - [x] UTC-based 5-hour windows
+  - [x] Detect block boundaries
+  - [x] Track active vs. inactive blocks
 - [x] Implement token calculations
   - [x] Sum by type (input, output, cache creation, cache read)
   - [x] Calculate total tokens

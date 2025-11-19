@@ -84,6 +84,24 @@ type Aggregator interface {
 	//   - BurnRate metrics for the specified window
 	BurnRate(sessionID string, window time.Duration) BurnRate
 
+	// BillingBlocks returns token usage grouped by 5-hour billing windows.
+	//
+	// Parameters:
+	//   - sessionID: Session to get blocks for (empty for all sessions)
+	//
+	// Returns:
+	//   - Slice of billing blocks sorted by start time (most recent first)
+	BillingBlocks(sessionID string) []BillingBlock
+
+	// CurrentBillingBlock returns the current active billing block.
+	//
+	// Parameters:
+	//   - sessionID: Session to get block for (empty for all sessions)
+	//
+	// Returns:
+	//   - Current billing block with usage so far
+	CurrentBillingBlock(sessionID string) BillingBlock
+
 	// Reset clears all aggregated data.
 	Reset()
 }
@@ -176,6 +194,31 @@ type TimestampedEntry struct {
 	InputTokens  int
 	OutputTokens int
 	SessionID    string
+}
+
+// BillingBlock represents a 5-hour billing window for Claude API.
+// Billing blocks are aligned to UTC: 00:00-05:00, 05:00-10:00, etc.
+type BillingBlock struct {
+	// StartTime is the UTC start of this billing block.
+	StartTime time.Time
+
+	// EndTime is the UTC end of this billing block.
+	EndTime time.Time
+
+	// TotalTokens in this block.
+	TotalTokens int
+
+	// InputTokens in this block.
+	InputTokens int
+
+	// OutputTokens in this block.
+	OutputTokens int
+
+	// EntryCount is the number of entries in this block.
+	EntryCount int
+
+	// IsActive indicates if this is the current billing block.
+	IsActive bool
 }
 
 // Config contains aggregator configuration.
