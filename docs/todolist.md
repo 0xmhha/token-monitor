@@ -8,16 +8,15 @@
 
 ## Phase 1: Foundation & Core Infrastructure
 
-### 1.1 Project Setup ✅ (Partially Complete)
+### 1.1 Project Setup ✅
 - [x] Create project directory structure
 - [x] Initialize .gitignore
 - [x] Create docs/ARCHITECTURE.md
 - [x] Create docs/todolist.md
-- [ ] Wait for user to create .claude folder with development rules
-- [ ] Initialize Go module (`go mod init github.com/yourusername/token-monitor`)
-- [ ] Set up basic project structure:
-  - [ ] `cmd/token-monitor/main.go` - CLI entry point
-  - [ ] `pkg/` - Public packages
+- [x] Initialize Go module (`go mod init github.com/yourusername/token-monitor`)
+- [x] Set up basic project structure:
+  - [x] `cmd/token-monitor/main.go` - CLI entry point
+  - [x] `pkg/` - Public packages
   - [ ] `internal/` - Private packages
   - [ ] `test/` - Integration tests
 - [ ] Create README.md with project overview
@@ -26,174 +25,174 @@
   - [ ] Linting (golangci-lint)
   - [ ] Build for multiple platforms
 
-### 1.2 Configuration System
-- [ ] Design configuration schema (YAML format)
-- [ ] Implement config loader
-  - [ ] Search for config in: `./`, `~/.config/token-monitor/`, `/etc/token-monitor/`
-  - [ ] Support environment variable overrides
-  - [ ] Validate configuration schema
-- [ ] Create default configuration file
-- [ ] Implement config merge logic (defaults → file → env vars → CLI flags)
-- [ ] Add config validation with helpful error messages
-- [ ] Write tests for config loading
+### 1.2 Configuration System ✅
+- [x] Design configuration schema (YAML format)
+- [x] Implement config loader
+  - [x] Search for config in: `./`, `~/.config/token-monitor/`, `/etc/token-monitor/`
+  - [x] Support environment variable overrides
+  - [x] Validate configuration schema
+- [x] Create default configuration file
+- [x] Implement config merge logic (defaults → file → env vars → CLI flags)
+- [x] Add config validation with helpful error messages
+- [x] Write tests for config loading
 
-### 1.3 Logging System
-- [ ] Choose logging library (e.g., `zap` or `logrus`)
-- [ ] Implement structured logging
-- [ ] Add log levels (debug, info, warn, error)
-- [ ] Configure log output destinations (stdout, file)
-- [ ] Add context-aware logging (request IDs, session IDs)
+### 1.3 Logging System ✅
+- [x] Choose logging library (slog - standard library)
+- [x] Implement structured logging
+- [x] Add log levels (debug, info, warn, error)
+- [x] Configure log output destinations (stdout, file)
+- [x] Add context-aware logging (session IDs)
 - [ ] Implement log rotation
-- [ ] Write logging utilities and helpers
+- [x] Write logging utilities and helpers
 
 ---
 
 ## Phase 2: Data Layer & Parsing
 
-### 2.1 JSONL Parser (`pkg/parser`)
-- [ ] Define `UsageEntry` data structures
-  - [ ] `UsageEntry` struct
-  - [ ] `Message` struct
-  - [ ] `TokenUsage` struct
-  - [ ] `Content` struct
-- [ ] Implement JSONL line parser
-  - [ ] JSON unmarshaling with validation
-  - [ ] Handle malformed lines gracefully
-  - [ ] Extract token usage metrics
-- [ ] Add validation logic
-  - [ ] Required field checks
-  - [ ] Type validation
-  - [ ] Range validation (non-negative tokens)
-- [ ] Implement streaming parser for large files
-  - [ ] Use `bufio.Scanner` for line-by-line reading
-  - [ ] Handle file encoding (UTF-8)
-  - [ ] Support incremental parsing
-- [ ] Write comprehensive parser tests
-  - [ ] Valid JSONL entries
-  - [ ] Malformed JSON
-  - [ ] Missing fields
-  - [ ] Edge cases (empty files, huge files)
+### 2.1 JSONL Parser (`pkg/parser`) ✅
+- [x] Define `UsageEntry` data structures
+  - [x] `UsageEntry` struct
+  - [x] `Message` struct
+  - [x] `TokenUsage` struct
+  - [x] `Content` struct
+- [x] Implement JSONL line parser
+  - [x] JSON unmarshaling with validation
+  - [x] Handle malformed lines gracefully
+  - [x] Extract token usage metrics
+- [x] Add validation logic
+  - [x] Required field checks
+  - [x] Type validation
+  - [x] Range validation (non-negative tokens)
+- [x] Implement streaming parser for large files
+  - [x] Use `bufio.Scanner` for line-by-line reading
+  - [x] Handle file encoding (UTF-8)
+  - [x] Support incremental parsing
+- [x] Write comprehensive parser tests
+  - [x] Valid JSONL entries
+  - [x] Malformed JSON
+  - [x] Missing fields
+  - [x] Edge cases (empty files, huge files)
 
-### 2.2 Data Discovery (`pkg/discovery`)
-- [ ] Implement Claude data directory discovery
-  - [ ] Check `~/.config/claude/projects/`
-  - [ ] Check `~/.claude/projects/` (legacy)
-  - [ ] Support `CLAUDE_CONFIG_DIR` environment variable
-  - [ ] Handle comma-separated paths
-- [ ] Create directory scanner
-  - [ ] List all JSONL files
-  - [ ] Extract project paths from directory structure
-  - [ ] Map files to session UUIDs
-- [ ] Add file metadata tracking
-  - [ ] File size
-  - [ ] Modification time
-  - [ ] Last read position
-- [ ] Write discovery tests
-  - [ ] Multiple directories
-  - [ ] Missing directories
-  - [ ] Permission issues
+### 2.2 Data Discovery (`pkg/discovery`) ✅
+- [x] Implement Claude data directory discovery
+  - [x] Check `~/.config/claude/projects/`
+  - [x] Check `~/.claude/projects/` (legacy)
+  - [x] Support `CLAUDE_CONFIG_DIR` environment variable
+  - [x] Handle comma-separated paths
+- [x] Create directory scanner
+  - [x] List all JSONL files
+  - [x] Extract project paths from directory structure
+  - [x] Map files to session UUIDs
+- [x] Add file metadata tracking
+  - [x] File size
+  - [x] Modification time
+  - [x] Last read position
+- [x] Write discovery tests
+  - [x] Multiple directories
+  - [x] Missing directories
+  - [x] Permission issues
 
-### 2.3 Session Manager (`pkg/session`)
-- [ ] Choose embedded database (BoltDB recommended)
-- [ ] Design session metadata schema
-  - [ ] UUID (primary key)
+### 2.3 Session Manager (`pkg/session`) ✅
+- [x] Choose embedded database (BoltDB)
+- [x] Design session metadata schema
+  - [x] UUID (primary key)
   - [ ] User-defined name
-  - [ ] Project path
-  - [ ] Created/updated timestamps
+  - [x] Project path
+  - [x] Created/updated timestamps
   - [ ] Tags
   - [ ] Description
-- [ ] Implement SessionManager
+- [x] Implement SessionManager
   - [ ] `SetName(uuid, name)` - Assign friendly name
   - [ ] `GetByName(name)` - Lookup by name
-  - [ ] `GetByUUID(uuid)` - Lookup by UUID
-  - [ ] `List()` - List all sessions
+  - [x] `GetByUUID(uuid)` - Lookup by UUID
+  - [x] `List()` - List all sessions
   - [ ] `Delete(uuid)` - Remove session
   - [ ] `Update(uuid, metadata)` - Update metadata
 - [ ] Add indexing for fast lookups
-  - [ ] UUID index
+  - [x] UUID index
   - [ ] Name index (unique constraint)
   - [ ] Project path index
 - [ ] Implement database migrations
 - [ ] Add data backup/restore functionality
-- [ ] Write session manager tests
-  - [ ] CRUD operations
-  - [ ] Concurrent access
-  - [ ] Data persistence
+- [x] Write session manager tests
+  - [x] CRUD operations
+  - [x] Concurrent access
+  - [x] Data persistence
   - [ ] Index integrity
 
 ---
 
 ## Phase 3: Real-time Monitoring Engine
 
-### 3.1 File Watcher (`pkg/watcher`)
-- [ ] Choose file watching library (`fsnotify`)
-- [ ] Implement Watcher interface
-  - [ ] `Start(ctx, paths)` - Begin watching
-  - [ ] `Stop()` - Graceful shutdown
-  - [ ] `Events()` - Event channel
-- [ ] Add event types
-  - [ ] File created
-  - [ ] File modified
-  - [ ] File deleted
-  - [ ] File moved
-- [ ] Implement event debouncing
-  - [ ] 100ms debounce window
-  - [ ] Batch multiple events for same file
+### 3.1 File Watcher (`pkg/watcher`) ✅
+- [x] Choose file watching library (`fsnotify`)
+- [x] Implement Watcher interface
+  - [x] `Start(ctx, paths)` - Begin watching
+  - [x] `Stop()` - Graceful shutdown
+  - [x] `Events()` - Event channel
+- [x] Add event types
+  - [x] File created
+  - [x] File modified
+  - [x] File deleted
+  - [x] File moved
+- [x] Implement event debouncing
+  - [x] 100ms debounce window
+  - [x] Batch multiple events for same file
 - [ ] Handle edge cases
   - [ ] File rotation
   - [ ] Directory creation/deletion
   - [ ] Symlinks
   - [ ] Network filesystems
-- [ ] Add error recovery
-  - [ ] Automatic restart on watcher errors
-  - [ ] Reconnection logic
-  - [ ] Circuit breaker pattern
-- [ ] Write watcher tests
-  - [ ] Event generation
-  - [ ] Debouncing
-  - [ ] Error handling
-  - [ ] Concurrent file changes
+- [x] Add error recovery
+  - [x] Automatic restart on watcher errors
+  - [x] Reconnection logic
+  - [x] Circuit breaker pattern
+- [x] Write watcher tests
+  - [x] Event generation
+  - [x] Debouncing
+  - [x] Error handling
+  - [x] Concurrent file changes
 
-### 3.2 Incremental File Reader (`pkg/reader`)
-- [ ] Implement file position tracking
-  - [ ] Store last read offset per file
-  - [ ] Persist positions to DB
-  - [ ] Handle file truncation
-- [ ] Create incremental reader
-  - [ ] Seek to last position
-  - [ ] Read new lines only
-  - [ ] Update position after successful read
-- [ ] Add file handle management
+### 3.2 Incremental File Reader (`pkg/reader`) ✅
+- [x] Implement file position tracking
+  - [x] Store last read offset per file
+  - [x] Persist positions to DB
+  - [x] Handle file truncation
+- [x] Create incremental reader
+  - [x] Seek to last position
+  - [x] Read new lines only
+  - [x] Update position after successful read
+- [x] Add file handle management
   - [ ] Connection pooling
-  - [ ] Automatic cleanup
+  - [x] Automatic cleanup
   - [ ] Resource limits
-- [ ] Implement retry logic
-  - [ ] File locked → exponential backoff
-  - [ ] File not found → wait for creation
-  - [ ] Permission denied → log and skip
-- [ ] Write reader tests
-  - [ ] Incremental reads
-  - [ ] File rotation handling
-  - [ ] Concurrent access
-  - [ ] Large file handling
+- [x] Implement retry logic
+  - [x] File locked → exponential backoff
+  - [x] File not found → wait for creation
+  - [x] Permission denied → log and skip
+- [x] Write reader tests
+  - [x] Incremental reads
+  - [x] File rotation handling
+  - [x] Concurrent access
+  - [x] Large file handling
 
-### 3.3 Token Aggregator (`pkg/aggregator`)
-- [ ] Define aggregation data structures
-  - [ ] `SessionStats` - Per-session aggregation
+### 3.3 Token Aggregator (`pkg/aggregator`) ✅
+- [x] Define aggregation data structures
+  - [x] `SessionStats` - Per-session aggregation
   - [ ] `BillingBlock` - 5-hour billing windows
-  - [ ] `TokenBreakdown` - By token type
-- [ ] Implement Aggregator
-  - [ ] `ProcessEntry(entry)` - Update stats
-  - [ ] `GetSessionStats(id)` - Retrieve stats
-  - [ ] `GetAllSessions()` - List all
+  - [x] `TokenBreakdown` - By token type
+- [x] Implement Aggregator
+  - [x] `ProcessEntry(entry)` - Update stats
+  - [x] `GetSessionStats(id)` - Retrieve stats
+  - [x] `GetAllSessions()` - List all
   - [ ] `CalculateBurnRate(id, window)` - Compute rate
 - [ ] Add billing block detection
   - [ ] UTC-based 5-hour windows
   - [ ] Detect block boundaries
   - [ ] Track active vs. inactive blocks
-- [ ] Implement token calculations
-  - [ ] Sum by type (input, output, cache creation, cache read)
-  - [ ] Calculate total tokens
+- [x] Implement token calculations
+  - [x] Sum by type (input, output, cache creation, cache read)
+  - [x] Calculate total tokens
   - [ ] Compute costs (future: integrate pricing)
 - [ ] Add burn rate calculation
   - [ ] Tokens per minute
@@ -203,8 +202,8 @@
   - [ ] LRU cache for session stats
   - [ ] Cache size limit (100 sessions)
   - [ ] Automatic eviction
-- [ ] Write aggregator tests
-  - [ ] Entry processing
+- [x] Write aggregator tests
+  - [x] Entry processing
   - [ ] Billing block detection
   - [ ] Burn rate calculation
   - [ ] Cache behavior
@@ -231,39 +230,40 @@
 
 ## Phase 4: CLI Interface
 
-### 4.1 CLI Framework Setup
-- [ ] Choose CLI library (`cobra` recommended)
-- [ ] Set up command structure
-  - [ ] `token-monitor` - Root command
-  - [ ] `monitor [session-name]` - Live monitoring
-  - [ ] `list` - List all sessions
+### 4.1 CLI Framework Setup ✅
+- [x] Choose CLI library (standard flag package)
+- [x] Set up command structure
+  - [x] `token-monitor` - Root command
+  - [x] `watch [flags]` - Live monitoring
+  - [x] `list` - List all sessions
+  - [x] `stats` - Display token statistics
   - [ ] `session` - Session management subcommands
   - [ ] `config` - Configuration management
-- [ ] Implement global flags
-  - [ ] `--config` - Custom config file
+- [x] Implement global flags
+  - [x] `--config` - Custom config file
   - [ ] `--log-level` - Logging level
   - [ ] `--json` - JSON output
   - [ ] `--no-color` - Disable colors
-- [ ] Add version command
-- [ ] Implement help text and examples
+- [x] Add version command
+- [x] Implement help text and examples
 - [ ] Write CLI tests
 
-### 4.2 Monitor Command (`cmd/monitor.go`)
-- [ ] Implement live monitoring command
-  - [ ] Parse session name or UUID
-  - [ ] Lookup session from database
-  - [ ] Start file watcher
-  - [ ] Display live stats
-- [ ] Add command flags
-  - [ ] `--session` - Session name/UUID
-  - [ ] `--mode` - Display mode (live, compact, table)
-  - [ ] `--refresh` - Refresh rate (default: 1s)
-  - [ ] `--json` - JSON output mode
-- [ ] Implement session auto-detection
-  - [ ] If no session specified, show all active sessions
+### 4.2 Watch Command (`cmd/token-monitor/commands.go`) ✅
+- [x] Implement live monitoring command
+  - [x] Parse session ID
+  - [ ] Lookup session from database by name
+  - [x] Start file watcher
+  - [x] Display live stats
+- [x] Add command flags
+  - [x] `--session` - Session ID
+  - [x] `--format` - Display mode (table, simple)
+  - [x] `--refresh` - Refresh rate (default: 1s)
+  - [x] `--history` - Keep history (append mode)
+- [x] Implement session auto-detection
+  - [x] If no session specified, show all active sessions
   - [ ] Allow selection from list
 - [ ] Add keyboard shortcuts
-  - [ ] `q` - Quit
+  - [ ] `q` - Quit (Ctrl+C works)
   - [ ] `r` - Reset stats
   - [ ] `↑/↓` - Navigate sessions (multi-session mode)
   - [ ] `?` - Show help
@@ -663,27 +663,74 @@
 
 ## Current Status
 
-**Last Updated**: 2025-11-17
+**Last Updated**: 2025-11-19
 
-**Current Phase**: Phase 1 - Foundation & Core Infrastructure
+**Current Phase**: Phase 4 - CLI Interface (Complete), Phase 5 - Display & UI (Partial)
 
-**Completed Tasks**:
-- Project directory structure created
-- .gitignore configured
-- docs/ARCHITECTURE.md created
-- docs/todolist.md created (this file)
+**Summary**: Core functionality is complete. Live monitoring, statistics, and session listing work. Missing features are session naming, cost calculation, burn rate, and billing blocks.
 
-**Next Steps**:
-1. Wait for user to create .claude folder with development rules
-2. Initialize Go module
-3. Set up basic project structure
-4. Implement configuration system
-5. Begin parser development
+---
 
-**Blockers**: None
+### Completed Features ✅
+
+**Phase 1: Foundation & Core Infrastructure**
+- Project structure, Go module, Makefile
+- Configuration system (`pkg/config`)
+- Logging system (`pkg/logger`)
+
+**Phase 2: Data Layer & Parsing**
+- JSONL Parser (`pkg/parser`)
+- Data Discovery (`pkg/discovery`)
+- Session Manager (`pkg/session`) - basic CRUD
+
+**Phase 3: Real-time Monitoring Engine**
+- File Watcher (`pkg/watcher`) with fsnotify
+- Incremental File Reader (`pkg/reader`)
+- Token Aggregator (`pkg/aggregator`)
+- Live Monitor (`pkg/monitor`)
+
+**Phase 4: CLI Interface**
+- `stats` command with grouping, filtering, formats
+- `list` command
+- `watch` command with real-time updates
+
+**Phase 5: Display & UI (Partial)**
+- Table, JSON, Simple output formats
+- Real-time terminal updates without flickering
+
+---
+
+### Not Yet Implemented ❌
+
+**Session Management (Priority: High)**
+- [ ] Session naming (`session name <uuid> <name>`)
+- [ ] Lookup by name (`GetByName`)
+- [ ] Session delete/update
+- [ ] Name index (unique constraint)
+
+**Cost & Analytics (Priority: Medium)**
+- [ ] Burn rate calculation (tokens/min)
+- [ ] Billing block detection (5-hour windows)
+- [ ] Cost calculation integration
+- [ ] Projections
+
+**Advanced Features (Priority: Low)**
+- [ ] Entry deduplication (`pkg/dedup`)
+- [ ] LRU cache for session stats
+- [ ] Keyboard shortcuts (q, r, ↑/↓, ?)
+- [ ] TUI dashboard with bubbletea
+- [ ] Config commands (show, set, reset)
+
+**Infrastructure (Priority: Low)**
+- [ ] README.md documentation
+- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Unit test coverage >80%
+- [ ] Log rotation
+
+---
 
 **Notes**:
-- Analyzed ccusage and claude-code projects for design patterns
-- Token tracking approach based on JSONL file monitoring
-- Session management via UUID → name mapping
-- Real-time monitoring using fsnotify
+- Live monitoring with `watch` command fully functional
+- Supports both single session and all-sessions monitoring
+- Delta tracking shows cumulative (Session +) and real-time (Now +) changes
+- Position reset on monitor start ensures all historical data is loaded

@@ -52,6 +52,8 @@ func run() error {
 		return runListCommand(*configPath)
 	case "watch":
 		return runWatchCommand(*configPath, args[1:])
+	case "session":
+		return runSessionCommand(*configPath, args[1:])
 	case "help":
 		return showUsage()
 	default:
@@ -104,6 +106,14 @@ func runListCommand(configPath string) error {
 	return cmd.Execute()
 }
 
+// runSessionCommand runs the session command.
+func runSessionCommand(configPath string, args []string) error {
+	cmd := &sessionCommand{
+		configPath: configPath,
+	}
+	return cmd.Execute(args)
+}
+
 // runWatchCommand runs the watch command.
 func runWatchCommand(configPath string, args []string) error {
 	// Define watch-specific flags.
@@ -139,6 +149,7 @@ Commands:
   stats       Display token usage statistics
   list        List all discovered sessions
   watch       Live monitoring of token usage
+  session     Session management (name, list, show, delete)
   help        Show this help message
 
 Global Flags:
@@ -192,6 +203,12 @@ Examples:
 
   # Live monitoring with history (append mode)
   token-monitor watch -history
+
+  # Session management
+  token-monitor session name <uuid> <name>
+  token-monitor session list
+  token-monitor session show <name>
+  token-monitor session delete <name>
 
 Version: %s
 `
