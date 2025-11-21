@@ -355,10 +355,9 @@
 ### 🎯 Next Milestone: v0.1.0 Release
 
 **Remaining for v0.1.0:**
-1. Update GitHub repository references
-2. Write CLI command tests
-3. Manual testing on target platforms
-4. Create and publish release
+1. Update GitHub repository references (requires GitHub username)
+2. Manual testing on target platforms (macOS, Linux, Windows)
+3. Create and publish release
 
 **Estimated Effort**: 1-2 days
 
