@@ -21,7 +21,7 @@ Real-time token usage monitoring CLI for Claude Code sessions.
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/token-monitor.git
+git clone https://github.com/0xmhha/token-monitor.git
 cd token-monitor
 go build -o token-monitor ./cmd/token-monitor
 ```
@@ -29,7 +29,7 @@ go build -o token-monitor ./cmd/token-monitor
 ### Using Go Install
 
 ```bash
-go install github.com/yourusername/token-monitor/cmd/token-monitor@latest
+go install github.com/0xmhha/token-monitor/cmd/token-monitor@latest
 ```
 
 ## Quick Start

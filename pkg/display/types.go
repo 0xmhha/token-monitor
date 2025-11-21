@@ -7,7 +7,7 @@ package display
 import (
 	"io"
 
-	"github.com/yourusername/token-monitor/pkg/aggregator"
+	"github.com/0xmhha/token-monitor/pkg/aggregator"
 )
 
 // Format represents an output format.

@@ -23,7 +23,7 @@ package aggregator
 import (
 	"time"
 
-	"github.com/yourusername/token-monitor/pkg/parser"
+	"github.com/0xmhha/token-monitor/pkg/parser"
 )
 
 // Dimension represents an aggregation dimension.

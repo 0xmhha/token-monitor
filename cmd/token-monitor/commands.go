@@ -9,16 +9,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yourusername/token-monitor/pkg/aggregator"
-	"github.com/yourusername/token-monitor/pkg/config"
-	"github.com/yourusername/token-monitor/pkg/discovery"
-	"github.com/yourusername/token-monitor/pkg/display"
-	"github.com/yourusername/token-monitor/pkg/logger"
-	"github.com/yourusername/token-monitor/pkg/monitor"
-	"github.com/yourusername/token-monitor/pkg/parser"
-	"github.com/yourusername/token-monitor/pkg/reader"
-	"github.com/yourusername/token-monitor/pkg/session"
-	"github.com/yourusername/token-monitor/pkg/watcher"
+	"github.com/0xmhha/token-monitor/pkg/aggregator"
+	"github.com/0xmhha/token-monitor/pkg/config"
+	"github.com/0xmhha/token-monitor/pkg/discovery"
+	"github.com/0xmhha/token-monitor/pkg/display"
+	"github.com/0xmhha/token-monitor/pkg/logger"
+	"github.com/0xmhha/token-monitor/pkg/monitor"
+	"github.com/0xmhha/token-monitor/pkg/parser"
+	"github.com/0xmhha/token-monitor/pkg/reader"
+	"github.com/0xmhha/token-monitor/pkg/session"
+	"github.com/0xmhha/token-monitor/pkg/watcher"
 )
 
 // statsCommand displays token usage statistics.

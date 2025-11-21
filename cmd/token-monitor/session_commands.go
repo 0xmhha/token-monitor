@@ -9,10 +9,10 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/yourusername/token-monitor/pkg/config"
-	"github.com/yourusername/token-monitor/pkg/discovery"
-	"github.com/yourusername/token-monitor/pkg/logger"
-	"github.com/yourusername/token-monitor/pkg/session"
+	"github.com/0xmhha/token-monitor/pkg/config"
+	"github.com/0xmhha/token-monitor/pkg/discovery"
+	"github.com/0xmhha/token-monitor/pkg/logger"
+	"github.com/0xmhha/token-monitor/pkg/session"
 )
 
 // sessionCommand handles session management subcommands.

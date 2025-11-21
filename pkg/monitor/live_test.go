@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/yourusername/token-monitor/pkg/discovery"
-	"github.com/yourusername/token-monitor/pkg/logger"
-	"github.com/yourusername/token-monitor/pkg/parser"
-	"github.com/yourusername/token-monitor/pkg/watcher"
+	"github.com/0xmhha/token-monitor/pkg/discovery"
+	"github.com/0xmhha/token-monitor/pkg/logger"
+	"github.com/0xmhha/token-monitor/pkg/parser"
+	"github.com/0xmhha/token-monitor/pkg/watcher"
 )
 
 // mockWatcher implements the watcher.Watcher interface for testing.

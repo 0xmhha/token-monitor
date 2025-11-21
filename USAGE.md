@@ -25,19 +25,19 @@ Complete reference for all commands, flags, and workflows.
 
 ### Using Go Install
 ```bash
-go install github.com/yourusername/token-monitor/cmd/token-monitor@latest
+go install github.com/0xmhha/token-monitor/cmd/token-monitor@latest
 ```
 
 ### From Source
 ```bash
-git clone https://github.com/yourusername/token-monitor.git
+git clone https://github.com/0xmhha/token-monitor.git
 cd token-monitor
 go build -o token-monitor ./cmd/token-monitor
 sudo mv token-monitor /usr/local/bin/
 ```
 
 ### Binary Download
-Download pre-built binaries from the [releases page](https://github.com/yourusername/token-monitor/releases).
+Download pre-built binaries from the [releases page](https://github.com/0xmhha/token-monitor/releases).
 
 ---
 
@@ -626,7 +626,7 @@ No. `session delete` only removes the metadata (name, tags) from Token Monitor's
 
 ```bash
 # If installed via go install
-go install github.com/yourusername/token-monitor/cmd/token-monitor@latest
+go install github.com/0xmhha/token-monitor/cmd/token-monitor@latest
 
 # Or download latest binary from releases
 ```
@@ -646,9 +646,9 @@ Currently Token Monitor is designed specifically for Claude Code's JSONL format.
 
 ## Getting Help
 
-- **Issues**: https://github.com/yourusername/token-monitor/issues
-- **Discussions**: https://github.com/yourusername/token-monitor/discussions
-- **Documentation**: https://github.com/yourusername/token-monitor
+- **Issues**: https://github.com/0xmhha/token-monitor/issues
+- **Discussions**: https://github.com/0xmhha/token-monitor/discussions
+- **Documentation**: https://github.com/0xmhha/token-monitor
 
 ---
 

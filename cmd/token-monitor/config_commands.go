@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yourusername/token-monitor/pkg/config"
+	"github.com/0xmhha/token-monitor/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 

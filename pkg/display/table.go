@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/yourusername/token-monitor/pkg/aggregator"
+	"github.com/0xmhha/token-monitor/pkg/aggregator"
 )
 
 // tableFormatter formats output as tables.

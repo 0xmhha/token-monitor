@@ -78,7 +78,7 @@ type Watcher interface {
 ### Creating an Aggregator
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/aggregator"
+import "github.com/0xmhha/token-monitor/pkg/aggregator"
 
 agg := aggregator.New(aggregator.Config{
     GroupBy: []aggregator.Dimension{
@@ -220,7 +220,7 @@ func (a *Aggregator) GetCurrentBlock() BillingBlock
 ### Loading Configuration
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/config"
+import "github.com/0xmhha/token-monitor/pkg/config"
 
 cfg, err := config.Load()
 if err != nil {
@@ -276,7 +276,7 @@ Override configuration with environment variables:
 ### Creating a Discovery Instance
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/discovery"
+import "github.com/0xmhha/token-monitor/pkg/discovery"
 
 disc := discovery.New(
     []string{"~/.config/claude/projects"},
@@ -314,7 +314,7 @@ func (d *Discovery) Discover() ([]SessionInfo, error)
 ### Creating a Display Formatter
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/display"
+import "github.com/0xmhha/token-monitor/pkg/display"
 
 formatter := display.New(display.Config{
     Format:          display.FormatTable,
@@ -379,7 +379,7 @@ func (f *Formatter) FormatTopSessions(
 ### Creating a Logger
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/logger"
+import "github.com/0xmhha/token-monitor/pkg/logger"
 
 log := logger.New(logger.Config{
     Level:  "info",
@@ -424,7 +424,7 @@ log := logger.Noop()
 ### Creating a Monitor
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/monitor"
+import "github.com/0xmhha/token-monitor/pkg/monitor"
 
 mon, err := monitor.New(monitor.Config{
     SessionIDs:      []string{"abc123"},
@@ -502,7 +502,7 @@ func (m *Monitor) Stats() aggregator.Stats
 ### Creating a Parser
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/parser"
+import "github.com/0xmhha/token-monitor/pkg/parser"
 
 p := parser.New()
 ```
@@ -604,7 +604,7 @@ type ValidationError struct {
 ### Creating a Reader
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/reader"
+import "github.com/0xmhha/token-monitor/pkg/reader"
 
 // Create position store
 store := reader.NewMemoryPositionStore()
@@ -700,7 +700,7 @@ var (
 ### Creating a Session Manager
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/session"
+import "github.com/0xmhha/token-monitor/pkg/session"
 
 mgr, err := session.New(session.Config{
     DBPath: "~/.config/token-monitor/sessions.db",
@@ -792,7 +792,7 @@ var (
 ### Creating a Watcher
 
 ```go
-import "github.com/yourusername/token-monitor/pkg/watcher"
+import "github.com/0xmhha/token-monitor/pkg/watcher"
 
 w, err := watcher.New(watcher.Config{
     DebounceInterval: 100 * time.Millisecond,
@@ -869,13 +869,13 @@ import (
     "log"
     "time"
 
-    "github.com/yourusername/token-monitor/pkg/aggregator"
-    "github.com/yourusername/token-monitor/pkg/config"
-    "github.com/yourusername/token-monitor/pkg/discovery"
-    "github.com/yourusername/token-monitor/pkg/logger"
-    "github.com/yourusername/token-monitor/pkg/parser"
-    "github.com/yourusername/token-monitor/pkg/reader"
-    "github.com/yourusername/token-monitor/pkg/session"
+    "github.com/0xmhha/token-monitor/pkg/aggregator"
+    "github.com/0xmhha/token-monitor/pkg/config"
+    "github.com/0xmhha/token-monitor/pkg/discovery"
+    "github.com/0xmhha/token-monitor/pkg/logger"
+    "github.com/0xmhha/token-monitor/pkg/parser"
+    "github.com/0xmhha/token-monitor/pkg/reader"
+    "github.com/0xmhha/token-monitor/pkg/session"
 )
 
 func main() {

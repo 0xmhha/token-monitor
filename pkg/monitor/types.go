@@ -3,7 +3,7 @@ package monitor
 import (
 	"time"
 
-	"github.com/yourusername/token-monitor/pkg/aggregator"
+	"github.com/0xmhha/token-monitor/pkg/aggregator"
 )
 
 // Config holds the configuration for the live monitor.

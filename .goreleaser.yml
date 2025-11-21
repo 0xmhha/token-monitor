@@ -60,8 +60,7 @@ changelog:
 
 release:
   github:
-    # TODO: Update with your actual GitHub username
-    owner: yourusername
+    owner: 0xmhha
     name: token-monitor
   draft: false
   prerelease: auto

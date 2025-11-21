@@ -45,7 +45,7 @@ We are committed to providing a welcoming and inspiring community for all. Pleas
    ```
 3. Add upstream remote:
    ```bash
-   git remote add upstream https://github.com/yourusername/token-monitor.git
+   git remote add upstream https://github.com/0xmhha/token-monitor.git
    ```
 
 ---
@@ -501,9 +501,9 @@ go tool pprof mem.prof
 
 ## Getting Help
 
-- **Questions**: Open a [Discussion](https://github.com/yourusername/token-monitor/discussions)
-- **Bugs**: Open an [Issue](https://github.com/yourusername/token-monitor/issues)
-- **Features**: Open an [Issue](https://github.com/yourusername/token-monitor/issues) with "enhancement" label
+- **Questions**: Open a [Discussion](https://github.com/0xmhha/token-monitor/discussions)
+- **Bugs**: Open an [Issue](https://github.com/0xmhha/token-monitor/issues)
+- **Features**: Open an [Issue](https://github.com/0xmhha/token-monitor/issues) with "enhancement" label
 
 ---
 

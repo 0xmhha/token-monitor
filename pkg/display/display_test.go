@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yourusername/token-monitor/pkg/aggregator"
+	"github.com/0xmhha/token-monitor/pkg/aggregator"
 )
 
 func TestNew(t *testing.T) {

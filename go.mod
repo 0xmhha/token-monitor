@@ -1,4 +1,4 @@
-module github.com/yourusername/token-monitor
+module github.com/0xmhha/token-monitor
 
 go 1.22.6
 

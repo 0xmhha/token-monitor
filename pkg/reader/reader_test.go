@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yourusername/token-monitor/pkg/logger"
-	"github.com/yourusername/token-monitor/pkg/parser"
+	"github.com/0xmhha/token-monitor/pkg/logger"
+	"github.com/0xmhha/token-monitor/pkg/parser"
 )
 
 func TestNew(t *testing.T) {
