@@ -17,27 +17,27 @@
   - [ ] Verify all import paths are correct
 
 ### Documentation
-- [ ] Create `USAGE.md`
-  - [ ] Command reference with all flags
-  - [ ] Common workflows and examples
-  - [ ] Troubleshooting guide
-  - [ ] FAQ section
+- [x] Create `USAGE.md`
+  - [x] Command reference with all flags
+  - [x] Common workflows and examples
+  - [x] Troubleshooting guide
+  - [x] FAQ section
 
-- [ ] Create `CONTRIBUTING.md`
-  - [ ] Development setup instructions
-  - [ ] Code style guide
-  - [ ] Pull request process
-  - [ ] Testing requirements
+- [x] Create `CONTRIBUTING.md`
+  - [x] Development setup instructions
+  - [x] Code style guide
+  - [x] Pull request process
+  - [x] Testing requirements
 
-- [ ] Create `CHANGELOG.md`
-  - [ ] v0.1.0 release notes
-  - [ ] Feature list
-  - [ ] Known limitations
+- [x] Create `CHANGELOG.md`
+  - [x] v0.1.0 release notes
+  - [x] Feature list
+  - [x] Known limitations
 
-- [ ] Update `docs/ARCHITECTURE.md`
-  - [ ] Add sequence diagrams
-  - [ ] Document data flows
-  - [ ] Update with current implementation details
+- [x] Update `docs/ARCHITECTURE.md`
+  - [x] Add sequence diagrams
+  - [x] Document data flows
+  - [x] Update with current implementation details
 
 ### Testing
 - [ ] Write CLI command tests
@@ -345,14 +345,17 @@
 
 **Documentation**
 - ✅ README.md with installation and usage
-- ✅ Architecture documentation
+- ✅ USAGE.md - Complete command reference with workflows and troubleshooting
+- ✅ CONTRIBUTING.md - Development guide with code style and PR process
+- ✅ CHANGELOG.md - v0.1.0 release notes with all features
+- ✅ ARCHITECTURE.md - Technical architecture with implementation status
 - ✅ Inline code documentation
 
 ### 🎯 Next Milestone: v0.1.0 Release
 
 **Remaining for v0.1.0:**
 1. Update GitHub repository references
-2. Create USAGE.md, CONTRIBUTING.md, CHANGELOG.md
+2. Write CLI command tests
 3. Manual testing on target platforms
 4. Create and publish release
 
