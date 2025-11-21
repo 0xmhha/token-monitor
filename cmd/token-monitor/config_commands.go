@@ -15,6 +15,7 @@ import (
 // configCommand handles configuration management subcommands.
 type configCommand struct {
 	configPath string
+	globalOpts globalOptions
 }
 
 // Execute runs the config command with given arguments.

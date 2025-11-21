@@ -30,6 +30,7 @@ type statsCommand struct {
 	format     string
 	compact    bool
 	configPath string
+	globalOpts globalOptions
 }
 
 // Execute runs the stats command.
@@ -58,8 +59,14 @@ func (c *statsCommand) initialize() (*config.Config, logger.Logger, session.Mana
 		return nil, nil, nil, nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Use global log level if set, otherwise use config.
+	logLevel := cfg.Logging.Level
+	if c.globalOpts.logLevel != "" {
+		logLevel = c.globalOpts.logLevel
+	}
+
 	log := logger.New(logger.Config{
-		Level:  cfg.Logging.Level,
+		Level:  logLevel,
 		Format: cfg.Logging.Format,
 		Output: cfg.Logging.Output,
 	})
@@ -215,6 +222,7 @@ func (c *statsCommand) displayResults(agg aggregator.Aggregator) error {
 // listCommand lists all discovered sessions.
 type listCommand struct {
 	configPath string
+	globalOpts globalOptions
 }
 
 // Execute runs the list command.
@@ -226,8 +234,14 @@ func (c *listCommand) Execute() error {
 	}
 
 	// Initialize logger.
+	// Use global log level if set, otherwise use config.
+	logLevel := cfg.Logging.Level
+	if c.globalOpts.logLevel != "" {
+		logLevel = c.globalOpts.logLevel
+	}
+
 	log := logger.New(logger.Config{
-		Level:  cfg.Logging.Level,
+		Level:  logLevel,
 		Format: cfg.Logging.Format,
 		Output: cfg.Logging.Output,
 	})
@@ -265,6 +279,7 @@ type watchCommand struct {
 	format      string
 	clearScreen bool
 	configPath  string
+	globalOpts  globalOptions
 }
 
 // Execute runs the watch command.
@@ -275,9 +290,14 @@ func (c *watchCommand) Execute() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Initialize logger (quiet mode for live monitoring)
+	// Initialize logger (quiet mode for live monitoring unless global log level is set)
+	logLevel := "error" // Only show errors during live monitoring by default
+	if c.globalOpts.logLevel != "" {
+		logLevel = c.globalOpts.logLevel
+	}
+
 	log := logger.New(logger.Config{
-		Level:  "error", // Only show errors during live monitoring
+		Level:  logLevel,
 		Format: cfg.Logging.Format,
 		Output: cfg.Logging.Output,
 	})

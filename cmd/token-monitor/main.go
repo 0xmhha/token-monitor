@@ -15,6 +15,14 @@ import (
 // version is set during build time.
 var version = "dev"
 
+// globalOptions holds global flags that apply to all commands.
+type globalOptions struct {
+	configPath string
+	logLevel   string
+	jsonOutput bool
+	noColor    bool
+}
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -27,6 +35,9 @@ func run() error {
 	// Define global flags.
 	configPath := flag.String("config", "", "path to configuration file")
 	showVersion := flag.Bool("version", false, "show version information")
+	logLevel := flag.String("log-level", "", "log level (debug, info, warn, error)")
+	jsonOutput := flag.Bool("json", false, "output in JSON format (applies to all commands)")
+	noColor := flag.Bool("no-color", false, "disable colored output")
 
 	// Parse command.
 	flag.Parse()
@@ -45,17 +56,25 @@ func run() error {
 
 	command := args[0]
 
+	// Create global options.
+	globalOpts := globalOptions{
+		configPath: *configPath,
+		logLevel:   *logLevel,
+		jsonOutput: *jsonOutput,
+		noColor:    *noColor,
+	}
+
 	switch command {
 	case "stats":
-		return runStatsCommand(*configPath, args[1:])
+		return runStatsCommand(globalOpts, args[1:])
 	case "list":
-		return runListCommand(*configPath)
+		return runListCommand(globalOpts)
 	case "watch":
-		return runWatchCommand(*configPath, args[1:])
+		return runWatchCommand(globalOpts, args[1:])
 	case "session":
-		return runSessionCommand(*configPath, args[1:])
+		return runSessionCommand(globalOpts, args[1:])
 	case "config":
-		return runConfigCommand(*configPath, args[1:])
+		return runConfigCommand(globalOpts, args[1:])
 	case "help":
 		return showUsage()
 	default:
@@ -64,7 +83,7 @@ func run() error {
 }
 
 // runStatsCommand runs the stats command.
-func runStatsCommand(configPath string, args []string) error {
+func runStatsCommand(globalOpts globalOptions, args []string) error {
 	// Define stats-specific flags.
 	fs := flag.NewFlagSet("stats", flag.ExitOnError)
 	sessionID := fs.String("session", "", "filter by session ID")
@@ -87,45 +106,55 @@ func runStatsCommand(configPath string, args []string) error {
 		}
 	}
 
+	// Override format if global --json flag is set.
+	outputFormat := *format
+	if globalOpts.jsonOutput {
+		outputFormat = "json"
+	}
+
 	cmd := &statsCommand{
 		sessionID:  *sessionID,
 		model:      *model,
 		groupBy:    dimensions,
 		topN:       *topN,
-		format:     *format,
+		format:     outputFormat,
 		compact:    *compact,
-		configPath: configPath,
+		configPath: globalOpts.configPath,
+		globalOpts: globalOpts,
 	}
 
 	return cmd.Execute()
 }
 
 // runListCommand runs the list command.
-func runListCommand(configPath string) error {
+func runListCommand(globalOpts globalOptions) error {
 	cmd := &listCommand{
-		configPath: configPath,
+		configPath: globalOpts.configPath,
+		globalOpts: globalOpts,
 	}
 	return cmd.Execute()
 }
 
 // runSessionCommand runs the session command.
-func runSessionCommand(configPath string, args []string) error {
+func runSessionCommand(globalOpts globalOptions, args []string) error {
 	cmd := &sessionCommand{
-		configPath: configPath,
+		configPath: globalOpts.configPath,
+		globalOpts: globalOpts,
 	}
 	return cmd.Execute(args)
 }
 
 // runConfigCommand runs the config command.
-func runConfigCommand(configPath string, args []string) error {
+func runConfigCommand(globalOpts globalOptions, args []string) error {
 	cmd := &configCommand{
-		configPath: configPath,
+		configPath: globalOpts.configPath,
+		globalOpts: globalOpts,
 	}
 	return cmd.Execute(args)
 }
 
 // runWatchCommand runs the watch command.
-func runWatchCommand(configPath string, args []string) error {
+func runWatchCommand(globalOpts globalOptions, args []string) error {
 	// Define watch-specific flags.
 	fs := flag.NewFlagSet("watch", flag.ExitOnError)
 	sessionID := fs.String("session", "", "monitor specific session ID")
@@ -137,12 +166,19 @@ func runWatchCommand(configPath string, args []string) error {
 		return err
 	}
 
+	// Override format if global --json flag is set.
+	outputFormat := *format
+	if globalOpts.jsonOutput {
+		outputFormat = "json"
+	}
+
 	cmd := &watchCommand{
 		sessionID:   *sessionID,
 		refresh:     *refresh,
-		format:      *format,
+		format:      outputFormat,
 		clearScreen: !*history, // clear screen unless history mode
-		configPath:  configPath,
+		configPath:  globalOpts.configPath,
+		globalOpts:  globalOpts,
 	}
 
 	return cmd.Execute()
@@ -164,8 +200,11 @@ Commands:
   help        Show this help message
 
 Global Flags:
-  -config     Path to configuration file
-  -version    Show version information
+  -config       Path to configuration file
+  -version      Show version information
+  -log-level    Set log level (debug, info, warn, error)
+  -json         Output in JSON format (overrides command-specific format flags)
+  -no-color     Disable colored output
 
 Stats Command Flags:
   -session    Filter by session ID

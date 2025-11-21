@@ -18,6 +18,7 @@ import (
 // sessionCommand handles session management subcommands.
 type sessionCommand struct {
 	configPath string
+	globalOpts globalOptions
 }
 
 // Execute runs the session command.
