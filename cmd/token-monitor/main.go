@@ -196,7 +196,7 @@ Commands:
   list        List all discovered sessions
   watch       Live monitoring of token usage
   session     Session management (name, list, show, delete)
-  config      Configuration management (show, path, reset)
+  config      Configuration management (show, path, set, validate, reset)
   help        Show this help message
 
 Global Flags:
@@ -259,6 +259,12 @@ Examples:
   token-monitor session list
   token-monitor session show <name>
   token-monitor session delete <name>
+
+  # Configuration management
+  token-monitor config show
+  token-monitor config set logging.level debug
+  token-monitor config validate
+  token-monitor config reset
 
 Version: %s
 `
