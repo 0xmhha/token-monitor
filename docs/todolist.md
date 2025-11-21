@@ -52,14 +52,14 @@
   - [x] `--json` - JSON output for all commands
   - [x] `--no-color` - Disable colored output
 
-- [ ] Implement `config set <key> <value>`
-  - [ ] Update configuration values
-  - [ ] Persist to config file
-  - [ ] Add validation
+- [x] Implement `config set <key> <value>` ✅ (Completed 2025-11-21)
+  - [x] Update configuration values
+  - [x] Persist to config file
+  - [x] Add validation
 
-- [ ] Add `config validate`
-  - [ ] Validate current configuration
-  - [ ] Report errors with suggestions
+- [x] Add `config validate` ✅ (Completed 2025-11-21)
+  - [x] Validate current configuration
+  - [x] Report errors with suggestions
 
 - [ ] Implement `session export <name|uuid>`
   - [ ] Export to CSV format
