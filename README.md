@@ -247,6 +247,9 @@ go test -cover ./...
 
 ## Documentation
 
+- [Usage Guide](USAGE.md) - Complete command reference, workflows, and troubleshooting
+- [Contributing](CONTRIBUTING.md) - Development guide and contribution process
+- [Changelog](CHANGELOG.md) - Version history and release notes
 - [Architecture](docs/ARCHITECTURE.md) - System design and components
 - [TODO List](docs/todolist.md) - Feature roadmap and development tasks
 
@@ -259,12 +262,12 @@ go test -cover ./...
 
 ## Contributing
 
-Contributions welcome! Please:
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Submit a pull request
+- Development setup and prerequisites
+- Code style and quality guidelines
+- Testing requirements and best practices
+- Pull request process and review workflow
 
 ## License
 
