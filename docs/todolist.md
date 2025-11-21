@@ -10,41 +10,7 @@
 
 ## 🎯 Current Sprint - Release Preparation (Priority: High)
 
-### Release Blockers
-- [ ] Update GitHub repository references
-  - [ ] Change `yourusername` in `go.mod` to actual GitHub username
-  - [ ] Update `.goreleaser.yml` owner field
-  - [ ] Verify all import paths are correct
-
-### Documentation
-- [x] Create `USAGE.md`
-  - [x] Command reference with all flags
-  - [x] Common workflows and examples
-  - [x] Troubleshooting guide
-  - [x] FAQ section
-
-- [x] Create `CONTRIBUTING.md`
-  - [x] Development setup instructions
-  - [x] Code style guide
-  - [x] Pull request process
-  - [x] Testing requirements
-
-- [x] Create `CHANGELOG.md`
-  - [x] v0.1.0 release notes
-  - [x] Feature list
-  - [x] Known limitations
-
-- [x] Update `docs/ARCHITECTURE.md`
-  - [x] Add sequence diagrams
-  - [x] Document data flows
-  - [x] Update with current implementation details
-
-### Testing
-- [x] Write CLI command tests
-  - [x] Test all command parsing
-  - [x] Test error handling
-  - [x] Test flag combinations
-
+### Manual Testing (Optional)
 - [ ] Manual testing across platforms
   - [ ] macOS testing
   - [ ] Linux testing
@@ -219,13 +185,6 @@
 
 ## 🧪 Testing & Quality (Priority: Medium)
 
-### Unit Tests
-- [x] Increase code coverage to >80%
-  - [x] Test all public APIs
-  - [x] Add edge case tests
-  - [x] Mock external dependencies
-  - Note: Parser package at 90.7%, Reader at 71.1%, most other packages exceed 75%
-
 ### Integration Tests
 - [ ] End-to-end workflow tests
   - [ ] Write JSONL → detect → parse → aggregate → display
@@ -239,18 +198,6 @@
 - [ ] Memory leak detection (24-hour run)
 - [ ] I/O throughput measurement
 - [ ] Concurrent access benchmarks
-
-### Documentation
-- [x] Create `docs/API.md`
-  - [x] Public package APIs
-  - [x] Data structures
-  - [x] Interface contracts
-
-- [x] Create `docs/TESTING.md`
-  - [x] Testing strategy
-  - [x] Running tests
-  - [x] Writing new tests
-  - [x] CI/CD integration
 
 ---
 
@@ -360,11 +307,10 @@
 ### 🎯 Next Milestone: v0.1.0 Release
 
 **Remaining for v0.1.0:**
-1. Update GitHub repository references (requires GitHub username)
-2. Manual testing on target platforms (macOS, Linux, Windows)
-3. Create and publish release
+1. Manual testing on target platforms (optional)
+2. Create and publish release
 
-**Estimated Effort**: 1-2 days
+**Estimated Effort**: < 1 day
 
 ---
 
