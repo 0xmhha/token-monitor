@@ -140,11 +140,12 @@ func (c *sessionCommand) runName(args []string) error {
 		return fmt.Errorf("failed to set name: %w", err)
 	}
 
-	if oldName == name {
+	switch {
+	case oldName == name:
 		fmt.Printf("Session '%s' already has name '%s'\n", uuid[:8], name)
-	} else if oldName == "" {
+	case oldName == "":
 		fmt.Printf("Set name '%s' for session '%s'\n", name, uuid[:8])
-	} else {
+	default:
 		fmt.Printf("Renamed session '%s' from '%s' to '%s'\n", uuid[:8], oldName, name)
 	}
 
@@ -260,8 +261,12 @@ func (c *sessionCommand) runList(args []string) error {
 
 	// Display sessions.
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tUUID\tPROJECT\tLAST UPDATED")
-	fmt.Fprintln(w, "----\t----\t-------\t------------")
+	if _, err := fmt.Fprintln(w, "NAME\tUUID\tPROJECT\tLAST UPDATED"); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
+	if _, err := fmt.Fprintln(w, "----\t----\t-------\t------------"); err != nil {
+		return fmt.Errorf("failed to write header separator: %w", err)
+	}
 
 	for _, s := range sessions {
 		shortUUID := s.UUID[:8] + "..."
@@ -275,10 +280,14 @@ func (c *sessionCommand) runList(args []string) error {
 			updated = s.UpdatedAt.Format("2006-01-02 15:04")
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, shortUUID, projectName, updated)
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, shortUUID, projectName, updated); err != nil {
+			return fmt.Errorf("failed to write session: %w", err)
+		}
 	}
 
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("failed to flush output: %w", err)
+	}
 
 	return nil
 }

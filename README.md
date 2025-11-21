@@ -1,10 +1,10 @@
 # Token Monitor
 
-Real-time token usage monitoring for Claude Code CLI sessions.
+Real-time token usage monitoring CLI for Claude Code sessions.
 
 ## Overview
 
-**Token Monitor** tracks Claude Code's token consumption in real-time, providing session-based monitoring, historical analysis, and burn rate tracking.
+**Token Monitor** tracks Claude Code's token consumption in real-time, providing session-based monitoring, burn rate analysis, and billing block tracking.
 
 ### Key Features
 
@@ -12,60 +12,188 @@ Real-time token usage monitoring for Claude Code CLI sessions.
 - **Session Management**: Track sessions by user-friendly names instead of UUIDs
 - **Token Breakdown**: Separate tracking for input, output, cache creation, and cache read tokens
 - **Billing Blocks**: Automatic 5-hour UTC billing window detection
-- **Burn Rate Analysis**: Tokens per minute with projections
-- **Beautiful TUI**: Terminal UI with progress bars and color coding
-- **Cross-Platform**: macOS, Linux, Windows support
+- **Burn Rate Analysis**: Tokens per minute with hourly projections
+- **Multiple Output Formats**: Table, JSON, and simple text output
+- **Delta Tracking**: View cumulative and real-time token changes
 
-## Status
+## Installation
 
-**Current Phase**: Foundation & Analysis
+### From Source
 
-This project is in early development. The following has been completed:
+```bash
+git clone https://github.com/yourusername/token-monitor.git
+cd token-monitor
+go build -o token-monitor ./cmd/token-monitor
+```
 
-- [x] Project analysis (ccusage and claude-code)
-- [x] Architecture design
-- [x] Feature specification
-- [x] Development roadmap
+### Using Go Install
 
-### Next Steps
-
-1. Wait for `.claude` folder creation with development rules
-2. Initialize Go module
-3. Begin core implementation
+```bash
+go install github.com/yourusername/token-monitor/cmd/token-monitor@latest
+```
 
 ## Quick Start
 
-> **Note**: Implementation not yet complete. This is the planned usage.
+```bash
+# Monitor all sessions in real-time
+token-monitor watch
+
+# View statistics
+token-monitor stats
+
+# List sessions
+token-monitor session list
+
+# Assign a friendly name to a session
+token-monitor session name <uuid> my-project
+```
+
+## Commands
+
+### `stats` - Display Statistics
 
 ```bash
-# Install
-go install github.com/yourusername/token-monitor@latest
+# Overall statistics
+token-monitor stats
 
-# Monitor a session
-token-monitor monitor my-project
+# Filter by session
+token-monitor stats --session <uuid>
 
+# Group by model
+token-monitor stats --group model
+
+# Top 10 sessions by usage
+token-monitor stats --top 10
+
+# JSON output
+token-monitor stats --format json
+```
+
+### `watch` - Live Monitoring
+
+```bash
+# Watch all sessions
+token-monitor watch
+
+# Watch specific session
+token-monitor watch --session <uuid>
+
+# Custom refresh rate
+token-monitor watch --refresh 2s
+
+# Simple text format
+token-monitor watch --format simple
+```
+
+The watch command displays:
+- Token usage with cumulative and real-time deltas
+- Statistics (average, min, max, percentiles)
+- Burn rate (tokens/minute and projected hourly)
+- Current billing block with time remaining
+
+### `session` - Session Management
+
+```bash
 # List all sessions
 token-monitor session list
 
-# Assign name to session
-token-monitor session name a1b2c3d4-... my-project
+# Sort by name, date, or uuid
+token-monitor session list --sort name
+
+# Name a session
+token-monitor session name <uuid> my-project
+
+# Show session details
+token-monitor session show my-project
+
+# Delete session metadata (keeps data files)
+token-monitor session delete my-project
 ```
 
-## Documentation
+### `list` - List Discovered Sessions
 
-- **[Architecture](docs/ARCHITECTURE.md)** - System design and components
-- **[Design](docs/DESIGN.md)** - Detailed design decisions
-- **[TODO List](docs/todolist.md)** - Feature roadmap and development tasks
+```bash
+token-monitor list
+```
+
+## Configuration
+
+Token Monitor searches for configuration in:
+1. `./token-monitor.yaml`
+2. `~/.config/token-monitor/config.yaml`
+3. `/etc/token-monitor/config.yaml`
+
+### Example Configuration
+
+```yaml
+claude_config_dirs:
+  - ~/.config/claude/projects
+  - ~/.claude/projects
+
+storage:
+  db_path: ~/.config/token-monitor/sessions.db
+
+logging:
+  level: info
+  format: text
+  output: stderr
+```
+
+### Environment Variables
+
+- `CLAUDE_CONFIG_DIR`: Override Claude config directories (comma-separated)
+
+## Output Example
+
+```
+📊 Live Token Monitor - 2024-01-15 14:23:45
+
+┌─────────────────┬──────────────┬──────────────┬────────────┐
+│ Metric          │ Total        │ Session +    │ Now +      │
+├─────────────────┼──────────────┼──────────────┼────────────┤
+│ Requests        │          142 │         +142 │        +12 │
+│ Input Tokens    │       125432 │      +125432 │      +8234 │
+│ Output Tokens   │        45123 │       +45123 │      +3421 │
+│ Total Tokens    │       170555 │      +170555 │     +11655 │
+└─────────────────┴──────────────┴──────────────┴────────────┘
+
+🔥 Burn Rate (5-minute window)
+┌─────────────────┬──────────────┐
+│ Metric          │ Value        │
+├─────────────────┼──────────────┤
+│ Tokens/min      │       1245.3 │
+│ Tokens/hour     │      74718.0 │
+│ Entries         │           12 │
+└─────────────────┴──────────────┘
+
+📊 Current Billing Block (10:00 - 15:00 UTC)
+┌─────────────────┬──────────────┐
+│ Metric          │ Value        │
+├─────────────────┼──────────────┤
+│ Total Tokens    │        89234 │
+│ Entries         │           87 │
+│ Time Left       │        0h37m │
+└─────────────────┴──────────────┘
+```
+
+## Billing Blocks
+
+Claude Code uses 5-hour billing windows aligned to UTC:
+- 00:00 - 05:00 UTC
+- 05:00 - 10:00 UTC
+- 10:00 - 15:00 UTC
+- 15:00 - 20:00 UTC
+- 20:00 - 00:00 UTC
+
+Token Monitor tracks usage within these blocks and shows time remaining.
 
 ## How It Works
 
-Token Monitor reads Claude Code's JSONL logs in real-time:
-
-1. **Data Source**: `~/.config/claude/projects/{projectDir}/{sessionId}.jsonl`
-2. **File Watching**: Detects new entries using filesystem events
-3. **Parsing**: Extracts token usage metrics (input, output, cache tokens)
-4. **Aggregation**: Computes session statistics and billing blocks
-5. **Display**: Renders live dashboard with burn rate and projections
+1. **Data Source**: Reads `~/.config/claude/projects/{projectDir}/{sessionId}.jsonl`
+2. **File Watching**: Detects new entries using filesystem events (fsnotify)
+3. **Incremental Reading**: Only processes new log entries
+4. **Aggregation**: Computes statistics, burn rates, and billing blocks
+5. **Display**: Renders live dashboard with real-time updates
 
 ### Data Privacy
 
@@ -76,120 +204,67 @@ Token Monitor reads Claude Code's JSONL logs in real-time:
 ## Architecture
 
 ```
-Claude Code → JSONL Files → Token Monitor → Terminal UI
-                              │
-                              ├─ File Watcher (fsnotify)
-                              ├─ JSONL Parser
-                              ├─ Token Aggregator
-                              ├─ Session Manager (BoltDB)
-                              └─ Display Engine (Bubbletea)
+token-monitor/
+├── cmd/token-monitor/    # CLI entry point and commands
+├── pkg/
+│   ├── aggregator/       # Token statistics and burn rate calculation
+│   ├── config/           # Configuration loading
+│   ├── discovery/        # Session file discovery
+│   ├── display/          # Output formatting
+│   ├── logger/           # Structured logging
+│   ├── monitor/          # Live monitoring engine
+│   ├── parser/           # JSONL log parsing
+│   ├── reader/           # Incremental file reading
+│   ├── session/          # Session metadata (BoltDB)
+│   └── watcher/          # File system watching
+└── docs/                 # Documentation
 ```
-
-## Planned Display Modes
-
-### Live Dashboard
-```
-┌─────────────────────────────────────────────────────────┐
-│ Token Monitor - Session: my-project                     │
-├─────────────────────────────────────────────────────────┤
-│ Session ID: a1b2c3d4-...          Last Update: 14:23:45 │
-│ Project: /path/to/project          Active: 2h 34m       │
-├─────────────────────────────────────────────────────────┤
-│ TOKEN USAGE                                             │
-│   Input:          125,432  ████████░░  (62%)            │
-│   Output:          45,123  ███░░░░░░░  (22%)            │
-│   Cache Create:    28,901  ██░░░░░░░░  (14%)            │
-│   Cache Read:       3,456  ░░░░░░░░░░   (2%)            │
-│   ─────────────────────────────────────────             │
-│   Total:          202,912                               │
-│                                                          │
-│ BURN RATE: 1,245 tokens/min  [MODERATE]                 │
-│                                                          │
-│ CURRENT BILLING BLOCK (00:00 - 05:00 UTC)               │
-│   Tokens: 89,234 / 500,000  [17%] ████░░░░░░░░░░░       │
-│   Time:   2h 23m / 5h       [47%] ███████░░░░░░░        │
-│   Projected: 156,789 tokens (31% of limit)              │
-│                                                          │
-│ Press 'q' to quit, '?' for help                         │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Compact Mode
-```
-[my-project] 202.9K tokens (in: 125K, out: 45K) | 1.2K/min | Block: 89K/500K (17%)
-```
-
-### JSON Mode
-```json
-{
-  "session": {
-    "id": "a1b2c3d4-...",
-    "name": "my-project",
-    "projectPath": "/path/to/project"
-  },
-  "tokens": {
-    "input": 125432,
-    "output": 45123,
-    "cacheCreation": 28901,
-    "cacheRead": 3456,
-    "total": 202912
-  },
-  "burnRate": 1245.3,
-  "currentBlock": {
-    "tokensUsed": 89234,
-    "tokenLimit": 500000,
-    "percentUsed": 17.8
-  }
-}
-```
-
-## Technology Stack
-
-- **Language**: Go 1.21+
-- **File Watching**: fsnotify
-- **Database**: BoltDB (embedded)
-- **TUI Framework**: Bubbletea
-- **CLI Framework**: Cobra
-- **Testing**: Go standard testing + testify
-
-## Performance Targets
-
-- **Latency**: <100ms from JSONL write to UI update
-- **Memory**: <50MB baseline, <200MB with 100 active sessions
-- **CPU**: <5% average
-- **Parsing**: >10,000 entries/second
 
 ## Development
 
 ### Prerequisites
 
-- Go 1.21 or higher
-- Make (optional)
+- Go 1.22 or later
 
-### Build
+### Building
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/token-monitor.git
-cd token-monitor
+go build -o token-monitor ./cmd/token-monitor
+```
 
-# Initialize module (not yet done)
-go mod init github.com/yourusername/token-monitor
-go mod tidy
+### Testing
 
-# Build
-go build -o bin/token-monitor ./cmd/token-monitor
-
-# Run tests
+```bash
+# Run all tests
 go test ./...
 
 # Run with race detector
 go test -race ./...
+
+# Run with coverage
+go test -cover ./...
 ```
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) - System design and components
+- [TODO List](docs/todolist.md) - Feature roadmap and development tasks
+
+## Technology Stack
+
+- **Language**: Go 1.22+
+- **File Watching**: fsnotify
+- **Database**: BoltDB (embedded)
+- **Testing**: Go testing + testify
 
 ## Contributing
 
-This project is in early development. Contributions welcome after initial implementation.
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Submit a pull request
 
 ## License
 
@@ -197,14 +272,6 @@ See [LICENSE](LICENSE) file.
 
 ## Acknowledgments
 
-- **[ccusage](https://github.com/tianhuil/ccusage)** - Inspiration for token tracking patterns
-- **Claude Code CLI** - The tool being monitored
-- **Anthropic** - For Claude and Claude Code
-
-## Contact
-
-Create an issue for questions or suggestions.
-
----
-
-**Status**: 🚧 Under Development | **Phase**: Foundation & Analysis
+- [ccusage](https://github.com/tianhuil/ccusage) - Inspiration for token tracking
+- Claude Code CLI - The tool being monitored
+- Anthropic - For Claude and Claude Code

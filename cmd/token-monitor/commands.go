@@ -290,8 +290,8 @@ func (c *watchCommand) Execute() error {
 		return fmt.Errorf("failed to initialize session manager: %w", err)
 	}
 	defer func() {
-		if err := sessionMgr.Close(); err != nil {
-			log.Error("failed to close session manager", "error", err)
+		if closeErr := sessionMgr.Close(); closeErr != nil {
+			log.Error("failed to close session manager", "error", closeErr)
 		}
 	}()
 
@@ -309,8 +309,8 @@ func (c *watchCommand) Execute() error {
 		return fmt.Errorf("failed to initialize reader: %w", err)
 	}
 	defer func() {
-		if err := r.Close(); err != nil {
-			log.Error("failed to close reader", "error", err)
+		if closeErr := r.Close(); closeErr != nil {
+			log.Error("failed to close reader", "error", closeErr)
 		}
 	}()
 
@@ -322,8 +322,8 @@ func (c *watchCommand) Execute() error {
 		return fmt.Errorf("failed to initialize watcher: %w", err)
 	}
 	defer func() {
-		if err := w.Close(); err != nil {
-			log.Error("failed to close watcher", "error", err)
+		if closeErr := w.Close(); closeErr != nil {
+			log.Error("failed to close watcher", "error", closeErr)
 		}
 	}()
 
@@ -454,6 +454,31 @@ func (c *watchCommand) displaySimple(update monitor.Update) {
 			fmt.Printf("Duration:        %s\n", duration.Round(time.Second))
 		}
 	}
+
+	// Burn rate
+	burnRate := update.BurnRate
+	if burnRate.EntryCount > 0 {
+		fmt.Printf("\n🔥 Burn Rate (5m window)\n")
+		fmt.Printf("Tokens/min:      %.1f\n", burnRate.TokensPerMinute)
+		fmt.Printf("Tokens/hour:     %.0f (projected)\n", burnRate.TokensPerHour)
+		fmt.Printf("Entries:         %d\n", burnRate.EntryCount)
+	}
+
+	// Current billing block
+	block := update.CurrentBlock
+	if block.EntryCount > 0 {
+		fmt.Printf("\n📊 Current Billing Block (%s - %s UTC)\n",
+			block.StartTime.UTC().Format("15:04"),
+			block.EndTime.UTC().Format("15:04"))
+		fmt.Printf("Block Tokens:    %d\n", block.TotalTokens)
+		fmt.Printf("Block Entries:   %d\n", block.EntryCount)
+
+		// Calculate time remaining in block
+		remaining := block.EndTime.Sub(time.Now().UTC())
+		if remaining > 0 {
+			fmt.Printf("Time Remaining:  %s\n", remaining.Round(time.Minute))
+		}
+	}
 }
 
 // displayTable shows a table format.
@@ -503,5 +528,46 @@ func (c *watchCommand) displayTable(update monitor.Update) {
 			fmt.Printf(" | Duration: %s", duration.Round(time.Second))
 		}
 		fmt.Println()
+	}
+
+	// Burn rate table
+	burnRate := update.BurnRate
+	if burnRate.EntryCount > 0 {
+		fmt.Println()
+		fmt.Println("🔥 Burn Rate (5-minute window)")
+		fmt.Println("┌─────────────────┬──────────────┐")
+		fmt.Println("│ Metric          │ Value        │")
+		fmt.Println("├─────────────────┼──────────────┤")
+		fmt.Printf("│ Tokens/min      │ %12.1f │\n", burnRate.TokensPerMinute)
+		fmt.Printf("│ Tokens/hour     │ %12.0f │\n", burnRate.TokensPerHour)
+		fmt.Printf("│ Input/min       │ %12.1f │\n", burnRate.InputTokensPerMinute)
+		fmt.Printf("│ Output/min      │ %12.1f │\n", burnRate.OutputTokensPerMinute)
+		fmt.Printf("│ Entries         │ %12d │\n", burnRate.EntryCount)
+		fmt.Println("└─────────────────┴──────────────┘")
+	}
+
+	// Billing block table
+	block := update.CurrentBlock
+	if block.EntryCount > 0 {
+		fmt.Println()
+		fmt.Printf("📊 Current Billing Block (%s - %s UTC)\n",
+			block.StartTime.UTC().Format("15:04"),
+			block.EndTime.UTC().Format("15:04"))
+		fmt.Println("┌─────────────────┬──────────────┐")
+		fmt.Println("│ Metric          │ Value        │")
+		fmt.Println("├─────────────────┼──────────────┤")
+		fmt.Printf("│ Total Tokens    │ %12d │\n", block.TotalTokens)
+		fmt.Printf("│ Input Tokens    │ %12d │\n", block.InputTokens)
+		fmt.Printf("│ Output Tokens   │ %12d │\n", block.OutputTokens)
+		fmt.Printf("│ Entries         │ %12d │\n", block.EntryCount)
+
+		// Calculate time remaining in block
+		remaining := block.EndTime.Sub(time.Now().UTC())
+		if remaining > 0 {
+			hours := int(remaining.Hours())
+			mins := int(remaining.Minutes()) % 60
+			fmt.Printf("│ Time Left       │ %9dh%02dm │\n", hours, mins)
+		}
+		fmt.Println("└─────────────────┴──────────────┘")
 	}
 }

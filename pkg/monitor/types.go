@@ -46,6 +46,12 @@ type Update struct {
 
 	// SessionID being monitored (empty if all sessions)
 	SessionID string
+
+	// BurnRate contains token consumption rate metrics
+	BurnRate aggregator.BurnRate
+
+	// CurrentBlock contains the current billing block stats
+	CurrentBlock aggregator.BillingBlock
 }
 
 // DeltaStats represents changes since the last update.

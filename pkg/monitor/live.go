@@ -378,11 +378,25 @@ func (m *liveMonitor) sendUpdate() {
 		m.lastDelta = delta
 	}
 
+	// Get session ID for filtering (empty string for all sessions)
+	sessionID := ""
+	if len(m.config.SessionIDs) == 1 {
+		sessionID = m.config.SessionIDs[0]
+	}
+
+	// Calculate burn rate for 5-minute window
+	burnRate := m.agg.BurnRate(sessionID, 5*time.Minute)
+
+	// Get current billing block
+	currentBlock := m.agg.CurrentBillingBlock(sessionID)
+
 	update := Update{
-		Timestamp:  time.Now(),
-		Stats:      currentStats,
-		Delta:      m.lastDelta, // Use last non-zero delta
-		Cumulative: cumulative,
+		Timestamp:    time.Now(),
+		Stats:        currentStats,
+		Delta:        m.lastDelta, // Use last non-zero delta
+		Cumulative:   cumulative,
+		BurnRate:     burnRate,
+		CurrentBlock: currentBlock,
 	}
 
 	// Send update (non-blocking)
