@@ -2,6 +2,7 @@ package reader
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -544,4 +545,58 @@ func TestReadWithRetry(t *testing.T) {
 	}
 
 	t.Logf("Read with retries took %v for non-existent file", elapsed)
+}
+
+// TestIsRetryable tests the error retry logic.
+func TestIsRetryable(t *testing.T) {
+	r := &reader{}
+
+	tests := []struct {
+		name    string
+		err     error
+		want    bool
+	}{
+		{"file locked - retryable", ErrFileLocked, true},
+		{"file not found - retryable", ErrFileNotFound, true},
+		{"permission denied - not retryable", ErrPermissionDenied, false},
+		{"file too large - not retryable", ErrFileTooLarge, false},
+		{"invalid offset - not retryable", ErrInvalidOffset, false},
+		{"context canceled - not retryable", context.Canceled, false},
+		{"context deadline exceeded - not retryable", context.DeadlineExceeded, false},
+		{"unknown error - retryable", errors.New("unknown error"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := r.isRetryable(tt.err)
+			if got != tt.want {
+				t.Errorf("isRetryable(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestResetAfterClose tests Reset on a closed reader.
+func TestResetAfterClose(t *testing.T) {
+	store := NewMemoryPositionStore()
+	p := parser.New()
+
+	r, err := New(Config{
+		PositionStore: store,
+		Parser:        p,
+	}, logger.Noop())
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	// Close the reader
+	if closeErr := r.Close(); closeErr != nil {
+		t.Fatalf("Close() error = %v", closeErr)
+	}
+
+	// Try to reset after close - should return ErrReaderClosed
+	err = r.Reset("/some/path")
+	if err != ErrReaderClosed {
+		t.Errorf("Reset() after Close() error = %v, want ErrReaderClosed", err)
+	}
 }
