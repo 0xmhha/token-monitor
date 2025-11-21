@@ -47,10 +47,10 @@
 ## 📦 Post-Release Improvements (Priority: Medium)
 
 ### CLI Enhancements
-- [ ] Add global flags
-  - [ ] `--log-level` - Control logging verbosity
-  - [ ] `--json` - JSON output for all commands
-  - [ ] `--no-color` - Disable colored output
+- [x] Add global flags ✅ (Completed 2025-11-21)
+  - [x] `--log-level` - Control logging verbosity
+  - [x] `--json` - JSON output for all commands
+  - [x] `--no-color` - Disable colored output
 
 - [ ] Implement `config set <key> <value>`
   - [ ] Update configuration values
@@ -112,13 +112,13 @@
   - [ ] Manifest file
   - [ ] Automated updates
 
-- [ ] Document `go install` method
-  - [ ] Installation instructions
-  - [ ] Version pinning
+- [x] Document `go install` method ✅ (Completed 2025-11-21)
+  - [x] Installation instructions
+  - [x] Version pinning
 
-- [ ] Direct binary downloads
-  - [ ] Documentation for manual install
-  - [ ] Verification instructions
+- [x] Direct binary downloads ✅ (Completed 2025-11-21)
+  - [x] Documentation for manual install
+  - [x] Verification instructions
 
 ---
 
