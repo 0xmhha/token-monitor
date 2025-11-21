@@ -8,7 +8,7 @@
 
 ---
 
-## 🎉 v0.1.0 Release - COMPLETED
+## 🎉 v0.1.0 Release - COMPLETED ✅
 
 ### Release Tasks ✅
 - [x] Create git tag (v0.1.0)
@@ -16,13 +16,21 @@
 - [x] Test goreleaser build locally
 - [x] Fix goreleaser deprecation warnings
 - [x] Push commits and tags to GitHub
-- [x] GitHub release created (https://github.com/0xmhha/token-monitor/releases/tag/v0.1.0)
+- [x] Publish GitHub release with all artifacts
+- [x] Verify release published successfully
 
-### Release Artifacts
-- Multi-platform binaries (Linux, macOS, Windows)
-- Architecture support (amd64, arm64)
-- Checksums for verification
-- Complete documentation
+### Release Details
+- **Published:** 2025-11-21 16:56:07 KST
+- **URL:** https://github.com/0xmhha/token-monitor/releases/tag/v0.1.0
+- **Downloads:** Public and ready for use
+
+### Release Artifacts (6 files)
+- ✅ checksums.txt
+- ✅ token-monitor_0.1.0_darwin_amd64.tar.gz (macOS Intel)
+- ✅ token-monitor_0.1.0_darwin_arm64.tar.gz (macOS Apple Silicon)
+- ✅ token-monitor_0.1.0_linux_amd64.tar.gz
+- ✅ token-monitor_0.1.0_linux_arm64.tar.gz
+- ✅ token-monitor_0.1.0_windows_amd64.tar.gz
 
 ---
 
