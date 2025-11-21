@@ -1,5 +1,9 @@
 # Token Monitor
 
+[![GitHub release](https://img.shields.io/github/v/release/0xmhha/token-monitor)](https://github.com/0xmhha/token-monitor/releases/latest)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/0xmhha/token-monitor)](https://github.com/0xmhha/token-monitor)
+[![License](https://img.shields.io/github/license/0xmhha/token-monitor)](LICENSE)
+
 Real-time token usage monitoring CLI for Claude Code sessions.
 
 ## Overview
@@ -15,8 +19,49 @@ Real-time token usage monitoring CLI for Claude Code sessions.
 - **Burn Rate Analysis**: Tokens per minute with hourly projections
 - **Multiple Output Formats**: Table, JSON, and simple text output
 - **Delta Tracking**: View cumulative and real-time token changes
+- **Global Flags**: Control logging, output format, and colors globally
 
 ## Installation
+
+### Download Pre-built Binaries (Recommended)
+
+Download the latest release for your platform from the [releases page](https://github.com/0xmhha/token-monitor/releases/latest):
+
+**macOS (Apple Silicon)**
+```bash
+curl -L https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_darwin_arm64.tar.gz | tar xz
+sudo mv token-monitor /usr/local/bin/
+```
+
+**macOS (Intel)**
+```bash
+curl -L https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_darwin_amd64.tar.gz | tar xz
+sudo mv token-monitor /usr/local/bin/
+```
+
+**Linux (amd64)**
+```bash
+curl -L https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_linux_amd64.tar.gz | tar xz
+sudo mv token-monitor /usr/local/bin/
+```
+
+**Linux (arm64)**
+```bash
+curl -L https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_linux_arm64.tar.gz | tar xz
+sudo mv token-monitor /usr/local/bin/
+```
+
+**Windows (amd64)**
+```powershell
+# Download from: https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_windows_amd64.tar.gz
+# Extract and add to PATH
+```
+
+### Using Go Install
+
+```bash
+go install github.com/0xmhha/token-monitor/cmd/token-monitor@v0.1.0
+```
 
 ### From Source
 
@@ -26,26 +71,58 @@ cd token-monitor
 go build -o token-monitor ./cmd/token-monitor
 ```
 
-### Using Go Install
+### Verify Installation
 
 ```bash
-go install github.com/0xmhha/token-monitor/cmd/token-monitor@latest
+token-monitor --version
+# Output: token-monitor v0.1.0
 ```
 
 ## Quick Start
 
+### 1. Start Live Monitoring
 ```bash
-# Monitor all sessions in real-time
+# Watch all Claude Code sessions in real-time
 token-monitor watch
+```
 
-# View statistics
+### 2. View Statistics
+```bash
+# See overall token usage
 token-monitor stats
 
-# List sessions
+# Group by model to see usage per AI model
+token-monitor stats --group-by model
+
+# Get JSON output for scripting
+token-monitor stats --json
+```
+
+### 3. Manage Sessions
+```bash
+# List all sessions
 token-monitor session list
 
-# Assign a friendly name to a session
-token-monitor session name <uuid> my-project
+# Name a session for easy reference
+token-monitor session name abc123-def456-... my-project
+
+# View detailed session info
+token-monitor session show my-project
+```
+
+### 4. Global Flags
+
+Control behavior across all commands:
+
+```bash
+# Enable debug logging
+token-monitor --log-level debug stats
+
+# Force JSON output
+token-monitor --json stats
+
+# Disable colored output
+token-monitor --no-color watch
 ```
 
 ## Commands
