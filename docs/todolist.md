@@ -2,26 +2,37 @@
 
 > **Purpose**: This document tracks remaining tasks for the token-monitor project. Completed features have been moved to archive.
 
-**Project Status**: Core functionality complete. Ready for v0.1.0 release after remaining documentation and polish.
+**Project Status**: v0.1.0 released! Core functionality complete and production-ready.
 
 **Last Updated**: 2025-11-21
 
 ---
 
-## 🎯 Current Sprint - Release Preparation (Priority: High)
+## 🎉 v0.1.0 Release - COMPLETED
+
+### Release Tasks ✅
+- [x] Create git tag (v0.1.0)
+- [x] Generate release notes (RELEASE_NOTES.md)
+- [x] Test goreleaser build locally
+- [x] Fix goreleaser deprecation warnings
+- [x] Push commits and tags to GitHub
+- [x] GitHub release created (https://github.com/0xmhha/token-monitor/releases/tag/v0.1.0)
+
+### Release Artifacts
+- Multi-platform binaries (Linux, macOS, Windows)
+- Architecture support (amd64, arm64)
+- Checksums for verification
+- Complete documentation
+
+---
+
+## 🎯 Current Sprint - Post-Release (Priority: Medium)
 
 ### Manual Testing (Optional)
 - [ ] Manual testing across platforms
   - [ ] macOS testing
   - [ ] Linux testing
-  - [ ] Windows testing (if applicable)
-
-### Release
-- [ ] Prepare v0.1.0 release
-  - [ ] Create git tag
-  - [ ] Generate release notes
-  - [ ] Test goreleaser build locally
-  - [ ] Publish release
+  - [ ] Windows testing
 
 ---
 
