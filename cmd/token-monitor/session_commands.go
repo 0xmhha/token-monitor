@@ -12,6 +12,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/0xmhha/token-monitor/pkg/aggregator"
 	"github.com/0xmhha/token-monitor/pkg/config"
 	"github.com/0xmhha/token-monitor/pkg/discovery"
 	"github.com/0xmhha/token-monitor/pkg/logger"
@@ -180,12 +181,20 @@ type displaySession struct {
 	Name        string
 	ProjectPath string
 	UpdatedAt   time.Time
+	TotalTokens int
+	EntryCount  int
+	FilePath    string
 }
 
 // listOptions holds parsed options for the list command.
 type listOptions struct {
-	sortBy  string
-	showAll bool
+	sortBy      string
+	showAll     bool
+	project     string
+	from        string
+	to          string
+	minTokens   int
+	showTokens  bool
 }
 
 // runList lists all sessions with metadata.
@@ -210,23 +219,41 @@ func (c *sessionCommand) runList(args []string) error {
 		return err
 	}
 
+	// Apply filters.
+	sessions = c.filterSessions(sessions, opts)
+
 	if len(sessions) == 0 {
 		return c.displayEmptyListMessage(opts.showAll)
 	}
 
 	c.sortSessions(sessions, opts.sortBy)
-	return c.displaySessionList(sessions)
+	return c.displaySessionListWithOptions(sessions, opts)
 }
 
 // parseListOptions parses command line flags for list command.
 func (c *sessionCommand) parseListOptions(args []string) (*listOptions, error) {
 	fs := flag.NewFlagSet("session list", flag.ExitOnError)
-	sortBy := fs.String("sort", "name", "sort by: name, date, uuid")
+	sortBy := fs.String("sort", "name", "sort by: name, date, uuid, tokens")
 	showAll := fs.Bool("all", false, "show all sessions including unnamed")
+	project := fs.String("project", "", "filter by project path (substring match)")
+	from := fs.String("from", "", "filter sessions updated after date (YYYY-MM-DD)")
+	to := fs.String("to", "", "filter sessions updated before date (YYYY-MM-DD)")
+	minTokens := fs.Int("min-tokens", 0, "filter sessions with at least N tokens")
+	showTokens := fs.Bool("tokens", false, "show token counts in output")
+
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
-	return &listOptions{sortBy: *sortBy, showAll: *showAll}, nil
+
+	return &listOptions{
+		sortBy:     *sortBy,
+		showAll:    *showAll,
+		project:    *project,
+		from:       *from,
+		to:         *to,
+		minTokens:  *minTokens,
+		showTokens: *showTokens || *minTokens > 0 || *sortBy == "tokens",
+	}, nil
 }
 
 // initializeSessionComponents sets up common session command dependencies.
@@ -271,7 +298,102 @@ func (c *sessionCommand) collectSessions(
 	}
 
 	namedMap := buildNamedSessionMap(namedSessions)
-	return combineSessionsForDisplay(discoveredSessions, namedMap, showAll), nil
+	sessions := combineSessionsForDisplay(discoveredSessions, namedMap, showAll)
+
+	// Enrich sessions with token counts.
+	c.enrichSessionsWithTokenCounts(sessions)
+
+	return sessions, nil
+}
+
+// enrichSessionsWithTokenCounts adds token usage data to sessions.
+func (c *sessionCommand) enrichSessionsWithTokenCounts(sessions []displaySession) {
+	p := parser.New()
+
+	for i := range sessions {
+		if sessions[i].FilePath == "" {
+			continue
+		}
+
+		entries, _, err := p.ParseFile(sessions[i].FilePath, 0)
+		if err != nil {
+			continue
+		}
+
+		var totalTokens int
+		for _, entry := range entries {
+			totalTokens += entry.Message.Usage.TotalTokens()
+		}
+
+		sessions[i].TotalTokens = totalTokens
+		sessions[i].EntryCount = len(entries)
+	}
+}
+
+// filterSessions applies filters to the session list.
+func (c *sessionCommand) filterSessions(sessions []displaySession, opts *listOptions) []displaySession {
+	if !c.hasActiveFilters(opts) {
+		return sessions
+	}
+
+	fromDate, toDate := c.parseDateFilters(opts)
+	filtered := make([]displaySession, 0, len(sessions))
+
+	for _, s := range sessions {
+		if c.sessionMatchesFilters(s, opts, fromDate, toDate) {
+			filtered = append(filtered, s)
+		}
+	}
+
+	return filtered
+}
+
+// hasActiveFilters checks if any filters are enabled.
+func (c *sessionCommand) hasActiveFilters(opts *listOptions) bool {
+	return opts.project != "" || opts.from != "" || opts.to != "" || opts.minTokens > 0
+}
+
+// parseDateFilters parses from and to date strings.
+func (c *sessionCommand) parseDateFilters(opts *listOptions) (time.Time, time.Time) {
+	var fromDate, toDate time.Time
+
+	if opts.from != "" {
+		if t, err := time.Parse("2006-01-02", opts.from); err == nil {
+			fromDate = t
+		}
+	}
+	if opts.to != "" {
+		if t, err := time.Parse("2006-01-02", opts.to); err == nil {
+			toDate = t.Add(24*time.Hour - time.Second) // End of day
+		}
+	}
+
+	return fromDate, toDate
+}
+
+// sessionMatchesFilters checks if a session passes all filters.
+func (c *sessionCommand) sessionMatchesFilters(s displaySession, opts *listOptions, fromDate, toDate time.Time) bool {
+	// Filter by project path.
+	if opts.project != "" && !strings.Contains(strings.ToLower(s.ProjectPath), strings.ToLower(opts.project)) {
+		return false
+	}
+
+	// Filter by date range (from).
+	if !fromDate.IsZero() && !s.UpdatedAt.IsZero() && s.UpdatedAt.Before(fromDate) {
+		return false
+	}
+
+	// Filter by date range (to).
+	if !toDate.IsZero() && !s.UpdatedAt.IsZero() && s.UpdatedAt.After(toDate) {
+		return false
+	}
+
+	// Filter by minimum tokens.
+	if opts.minTokens > 0 && s.TotalTokens < opts.minTokens {
+		return false
+	}
+
+	return true
 }
 
 // buildNamedSessionMap creates a UUID to metadata map.
@@ -298,6 +420,7 @@ func combineSessionsForDisplay(
 				Name:        named.Name,
 				ProjectPath: ds.ProjectPath,
 				UpdatedAt:   named.UpdatedAt,
+				FilePath:    ds.FilePath,
 			})
 		} else if showAll {
 			sessions = append(sessions, displaySession{
@@ -305,6 +428,7 @@ func combineSessionsForDisplay(
 				Name:        "(unnamed)",
 				ProjectPath: ds.ProjectPath,
 				UpdatedAt:   time.Time{},
+				FilePath:    ds.FilePath,
 			})
 		}
 	}
@@ -337,44 +461,92 @@ func (c *sessionCommand) sortSessions(sessions []displaySession, sortBy string) 
 		sort.Slice(sessions, func(i, j int) bool {
 			return sessions[i].UUID < sessions[j].UUID
 		})
+	case "tokens":
+		sort.Slice(sessions, func(i, j int) bool {
+			return sessions[i].TotalTokens > sessions[j].TotalTokens
+		})
 	}
 }
 
-// displaySessionList renders the session list as a table.
-func (c *sessionCommand) displaySessionList(sessions []displaySession) error {
+// displaySessionListWithOptions renders the session list with optional columns.
+func (c *sessionCommand) displaySessionListWithOptions(sessions []displaySession, opts *listOptions) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
-	if err := c.writeSessionTableHeader(w); err != nil {
+	if err := c.writeSessionTableHeaderWithOptions(w, opts); err != nil {
 		return err
 	}
 
 	for _, s := range sessions {
-		if err := c.writeSessionRow(w, s); err != nil {
+		if err := c.writeSessionRowWithOptions(w, s, opts); err != nil {
 			return err
 		}
 	}
 
-	return w.Flush()
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	// Show filter summary if filters were applied.
+	c.displayFilterSummary(len(sessions), opts)
+
+	return nil
 }
 
-// writeSessionTableHeader writes the table header.
-func (c *sessionCommand) writeSessionTableHeader(w *tabwriter.Writer) error {
-	if _, err := fmt.Fprintln(w, "NAME\tUUID\tPROJECT\tLAST UPDATED"); err != nil {
+// displayFilterSummary shows what filters were applied.
+func (c *sessionCommand) displayFilterSummary(count int, opts *listOptions) {
+	var filters []string
+
+	if opts.project != "" {
+		filters = append(filters, fmt.Sprintf("project contains '%s'", opts.project))
+	}
+	if opts.from != "" {
+		filters = append(filters, fmt.Sprintf("from %s", opts.from))
+	}
+	if opts.to != "" {
+		filters = append(filters, fmt.Sprintf("to %s", opts.to))
+	}
+	if opts.minTokens > 0 {
+		filters = append(filters, fmt.Sprintf("min %d tokens", opts.minTokens))
+	}
+
+	if len(filters) > 0 {
+		fmt.Printf("\nFilters: %s\n", strings.Join(filters, ", "))
+	}
+	fmt.Printf("Total: %d session(s)\n", count)
+}
+
+// writeSessionTableHeaderWithOptions writes the table header with optional columns.
+func (c *sessionCommand) writeSessionTableHeaderWithOptions(w *tabwriter.Writer, opts *listOptions) error {
+	header := "NAME\tUUID\tPROJECT\tLAST UPDATED"
+	separator := "----\t----\t-------\t------------"
+
+	if opts.showTokens {
+		header += "\tTOKENS\tREQUESTS"
+		separator += "\t------\t--------"
+	}
+
+	if _, err := fmt.Fprintln(w, header); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
-	if _, err := fmt.Fprintln(w, "----\t----\t-------\t------------"); err != nil {
+	if _, err := fmt.Fprintln(w, separator); err != nil {
 		return fmt.Errorf("failed to write header separator: %w", err)
 	}
 	return nil
 }
 
-// writeSessionRow writes a single session row.
-func (c *sessionCommand) writeSessionRow(w *tabwriter.Writer, s displaySession) error {
+// writeSessionRowWithOptions writes a single session row with optional columns.
+func (c *sessionCommand) writeSessionRowWithOptions(w *tabwriter.Writer, s displaySession, opts *listOptions) error {
 	shortUUID := s.UUID[:8] + "..."
 	projectName := truncateProjectPath(s.ProjectPath, 30)
 	updated := formatUpdateTime(s.UpdatedAt)
 
-	if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, shortUUID, projectName, updated); err != nil {
+	row := fmt.Sprintf("%s\t%s\t%s\t%s", s.Name, shortUUID, projectName, updated)
+
+	if opts.showTokens {
+		row += fmt.Sprintf("\t%d\t%d", s.TotalTokens, s.EntryCount)
+	}
+
+	if _, err := fmt.Fprintln(w, row); err != nil {
 		return fmt.Errorf("failed to write session: %w", err)
 	}
 	return nil
@@ -396,64 +568,100 @@ func formatUpdateTime(t time.Time) string {
 	return t.Format("2006-01-02 15:04")
 }
 
+// showOptions holds parsed options for the show command.
+type showOptions struct {
+	identifier string
+	detailed   bool
+}
+
 // runShow displays detailed session information.
 func (c *sessionCommand) runShow(args []string) error {
-	fs := flag.NewFlagSet("session show", flag.ExitOnError)
-	if err := fs.Parse(args); err != nil {
+	opts, err := c.parseShowOptions(args)
+	if err != nil {
 		return err
 	}
 
-	if fs.NArg() < 1 {
-		return fmt.Errorf("usage: token-monitor session show <name|uuid>")
-	}
-
-	identifier := fs.Arg(0)
-
-	// Load configuration.
-	cfg, err := config.Load()
+	cfg, log, mgr, err := c.initializeSessionComponents()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Initialize logger.
-	log := logger.New(logger.Config{
-		Level:  cfg.Logging.Level,
-		Format: cfg.Logging.Format,
-		Output: cfg.Logging.Output,
-	})
-
-	// Initialize session manager.
-	mgr, err := session.New(session.Config{
-		DBPath: cfg.Storage.DBPath,
-	}, log)
-	if err != nil {
-		return fmt.Errorf("failed to initialize session manager: %w", err)
+		return err
 	}
 	defer func() {
-		if closeErr := mgr.Close(); closeErr != nil {
-			log.Error("failed to close session manager", "error", closeErr)
+		if mgr != nil {
+			_ = mgr.Close() //nolint:errcheck // best effort cleanup
 		}
 	}()
 
-	// Try to find session by name first, then by UUID.
-	var metadata *session.Metadata
-
-	metadata, err = mgr.GetByName(identifier)
+	metadata, sessionFile, err := c.findSessionForShow(cfg, log, mgr, opts.identifier)
 	if err != nil {
-		if err == session.ErrSessionNotFound {
-			// Try by UUID.
-			metadata, err = mgr.GetByUUID(identifier)
-			if err != nil {
-				return fmt.Errorf("session not found: %s", identifier)
-			}
-		} else {
-			return fmt.Errorf("failed to get session: %w", err)
+		return err
+	}
+
+	c.displaySessionMetadata(metadata)
+
+	if sessionFile != nil {
+		if err := c.displaySessionStats(sessionFile, metadata.UUID); err != nil {
+			log.Warn("failed to display session stats", "error", err)
 		}
 	}
 
-	// Display session details.
-	fmt.Println("Session Details")
-	fmt.Println(strings.Repeat("─", 40))
+	return nil
+}
+
+// parseShowOptions parses command line flags for show command.
+func (c *sessionCommand) parseShowOptions(args []string) (*showOptions, error) {
+	fs := flag.NewFlagSet("session show", flag.ExitOnError)
+	detailed := fs.Bool("detailed", true, "show detailed statistics")
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+
+	if fs.NArg() < 1 {
+		return nil, fmt.Errorf("usage: token-monitor session show <name|uuid>")
+	}
+
+	return &showOptions{identifier: fs.Arg(0), detailed: *detailed}, nil
+}
+
+// findSessionForShow finds session metadata and file for the show command.
+func (c *sessionCommand) findSessionForShow(
+	cfg *config.Config,
+	log logger.Logger,
+	mgr session.Manager,
+	identifier string,
+) (*session.Metadata, *discovery.SessionFile, error) {
+	// Try to find session by name first, then by UUID.
+	metadata, err := mgr.GetByName(identifier)
+	if err != nil {
+		if err == session.ErrSessionNotFound {
+			metadata, err = mgr.GetByUUID(identifier)
+			if err != nil {
+				return nil, nil, fmt.Errorf("session not found: %s", identifier)
+			}
+		} else {
+			return nil, nil, fmt.Errorf("failed to get session: %w", err)
+		}
+	}
+
+	// Find the session file.
+	disc := discovery.New(cfg.ClaudeConfigDirs, log)
+	discoveredSessions, err := disc.Discover()
+	if err != nil {
+		return metadata, nil, nil // Return metadata even if discovery fails
+	}
+
+	for i := range discoveredSessions {
+		if discoveredSessions[i].SessionID == metadata.UUID {
+			return metadata, &discoveredSessions[i], nil
+		}
+	}
+
+	return metadata, nil, nil
+}
+
+// displaySessionMetadata shows basic session metadata.
+func (c *sessionCommand) displaySessionMetadata(metadata *session.Metadata) {
+	fmt.Println("📋 Session Details")
+	fmt.Println(strings.Repeat("─", 60))
 	fmt.Printf("UUID:        %s\n", metadata.UUID)
 	fmt.Printf("Name:        %s\n", metadata.Name)
 	fmt.Printf("Project:     %s\n", metadata.ProjectPath)
@@ -467,8 +675,195 @@ func (c *sessionCommand) runShow(args []string) error {
 	if metadata.Description != "" {
 		fmt.Printf("Description: %s\n", metadata.Description)
 	}
+}
+
+// displaySessionStats shows token statistics, billing blocks, and activity timeline.
+func (c *sessionCommand) displaySessionStats(sessionFile *discovery.SessionFile, sessionID string) error {
+	// Parse the session file.
+	p := parser.New()
+	entries, _, err := p.ParseFile(sessionFile.FilePath, 0)
+	if err != nil {
+		return fmt.Errorf("failed to parse session file: %w", err)
+	}
+
+	if len(entries) == 0 {
+		fmt.Println("\nNo usage data found for this session.")
+		return nil
+	}
+
+	// Create aggregator and add entries.
+	agg := aggregator.New(aggregator.Config{
+		TrackPercentiles: true,
+	})
+
+	for _, entry := range entries {
+		entry.SessionID = sessionID
+		agg.Add(entry)
+	}
+
+	c.displayTokenBreakdown(agg.Stats(), entries)
+	c.displayBillingBlocks(agg.BillingBlocks(sessionID))
+	c.displayActivityTimeline(entries)
 
 	return nil
+}
+
+// displayTokenBreakdown shows token usage breakdown by type.
+func (c *sessionCommand) displayTokenBreakdown(stats aggregator.Statistics, entries []parser.UsageEntry) {
+	// Calculate cache token totals.
+	var cacheCreation, cacheRead int
+	for _, entry := range entries {
+		cacheCreation += entry.Message.Usage.CacheCreationInputTokens
+		cacheRead += entry.Message.Usage.CacheReadInputTokens
+	}
+
+	fmt.Println()
+	fmt.Println("📊 Token Breakdown")
+	fmt.Println("┌────────────────────────┬──────────────┬─────────┐")
+	fmt.Println("│ Token Type             │        Count │   Share │")
+	fmt.Println("├────────────────────────┼──────────────┼─────────┤")
+
+	total := stats.TotalTokens
+	if total == 0 {
+		total = 1 // Avoid division by zero
+	}
+
+	fmt.Printf("│ Input Tokens           │ %12d │ %6.1f%% │\n",
+		stats.InputTokens, float64(stats.InputTokens)*100/float64(total))
+	fmt.Printf("│ Output Tokens          │ %12d │ %6.1f%% │\n",
+		stats.OutputTokens, float64(stats.OutputTokens)*100/float64(total))
+	fmt.Printf("│ Cache Creation Tokens  │ %12d │ %6.1f%% │\n",
+		cacheCreation, float64(cacheCreation)*100/float64(total))
+	fmt.Printf("│ Cache Read Tokens      │ %12d │ %6.1f%% │\n",
+		cacheRead, float64(cacheRead)*100/float64(total))
+	fmt.Println("├────────────────────────┼──────────────┼─────────┤")
+	fmt.Printf("│ Total Tokens           │ %12d │ %6.1f%% │\n", stats.TotalTokens, 100.0)
+	fmt.Println("└────────────────────────┴──────────────┴─────────┘")
+
+	// Statistics summary.
+	fmt.Println()
+	fmt.Println("📈 Statistics")
+	fmt.Println("┌────────────────────────┬──────────────┐")
+	fmt.Println("│ Metric                 │        Value │")
+	fmt.Println("├────────────────────────┼──────────────┤")
+	fmt.Printf("│ Total Requests         │ %12d │\n", stats.Count)
+	fmt.Printf("│ Average Tokens/Request │ %12.0f │\n", stats.AvgTokens)
+	fmt.Printf("│ Min Tokens             │ %12d │\n", stats.MinTokens)
+	fmt.Printf("│ Max Tokens             │ %12d │\n", stats.MaxTokens)
+	if stats.P50Tokens > 0 {
+		fmt.Printf("│ P50 Tokens             │ %12d │\n", stats.P50Tokens)
+		fmt.Printf("│ P95 Tokens             │ %12d │\n", stats.P95Tokens)
+		fmt.Printf("│ P99 Tokens             │ %12d │\n", stats.P99Tokens)
+	}
+	fmt.Println("└────────────────────────┴──────────────┘")
+}
+
+// displayBillingBlocks shows the billing blocks timeline.
+func (c *sessionCommand) displayBillingBlocks(blocks []aggregator.BillingBlock) {
+	if len(blocks) == 0 {
+		return
+	}
+
+	fmt.Println()
+	fmt.Println("⏰ Billing Blocks (5-hour UTC windows)")
+	fmt.Println("┌─────────────────────────────────┬──────────────┬──────────┬────────┐")
+	fmt.Println("│ Time Window (UTC)               │       Tokens │ Requests │ Status │")
+	fmt.Println("├─────────────────────────────────┼──────────────┼──────────┼────────┤")
+
+	// Show up to 10 most recent blocks.
+	maxBlocks := 10
+	if len(blocks) < maxBlocks {
+		maxBlocks = len(blocks)
+	}
+
+	for i := 0; i < maxBlocks; i++ {
+		block := blocks[i]
+		status := "  past"
+		if block.IsActive {
+			status = "🔴 now"
+		}
+
+		timeWindow := fmt.Sprintf("%s - %s",
+			block.StartTime.Format("2006-01-02 15:04"),
+			block.EndTime.Format("15:04"))
+
+		fmt.Printf("│ %-31s │ %12d │ %8d │ %s │\n",
+			timeWindow, block.TotalTokens, block.EntryCount, status)
+	}
+
+	fmt.Println("└─────────────────────────────────┴──────────────┴──────────┴────────┘")
+
+	if len(blocks) > maxBlocks {
+		fmt.Printf("  ... and %d more billing blocks\n", len(blocks)-maxBlocks)
+	}
+}
+
+// displayActivityTimeline shows recent activity timestamps.
+func (c *sessionCommand) displayActivityTimeline(entries []parser.UsageEntry) {
+	if len(entries) == 0 {
+		return
+	}
+
+	fmt.Println()
+	fmt.Println("📅 Activity Timeline")
+	fmt.Println("┌─────────────────────┬────────────────────────────────┬────────────┐")
+	fmt.Println("│ Timestamp           │ Model                          │     Tokens │")
+	fmt.Println("├─────────────────────┼────────────────────────────────┼────────────┤")
+
+	// Show up to 15 most recent entries.
+	maxEntries := 15
+	startIdx := 0
+	if len(entries) > maxEntries {
+		startIdx = len(entries) - maxEntries
+	}
+
+	for i := startIdx; i < len(entries); i++ {
+		entry := entries[i]
+		model := entry.Message.Model
+		if len(model) > 30 {
+			model = model[:27] + "..."
+		}
+
+		fmt.Printf("│ %s │ %-30s │ %10d │\n",
+			entry.Timestamp.Format("2006-01-02 15:04"),
+			model,
+			entry.Message.Usage.TotalTokens())
+	}
+
+	fmt.Println("└─────────────────────┴────────────────────────────────┴────────────┘")
+
+	if len(entries) > maxEntries {
+		fmt.Printf("  Showing last %d of %d entries\n", maxEntries, len(entries))
+	}
+
+	// Time span.
+	if len(entries) >= 2 {
+		first := entries[0].Timestamp
+		last := entries[len(entries)-1].Timestamp
+		duration := last.Sub(first)
+		fmt.Printf("\n  Session span: %s → %s (%s)\n",
+			first.Format("2006-01-02 15:04"),
+			last.Format("2006-01-02 15:04"),
+			formatDuration(duration))
+	}
+}
+
+// formatDuration formats a duration in a human-readable way.
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		hours := int(d.Hours())
+		mins := int(d.Minutes()) % 60
+		return fmt.Sprintf("%dh %dm", hours, mins)
+	}
+	days := int(d.Hours()) / 24
+	hours := int(d.Hours()) % 24
+	return fmt.Sprintf("%dd %dh", days, hours)
 }
 
 // runDelete removes session metadata.
@@ -903,8 +1298,13 @@ Subcommands:
   help                  Show this help message
 
 List Flags:
-  -sort    Sort by: name, date, uuid (default: name)
-  -all     Show all sessions including unnamed
+  -sort        Sort by: name, date, uuid, tokens (default: name)
+  -all         Show all sessions including unnamed
+  -project     Filter by project path (substring match)
+  -from        Filter sessions updated after date (YYYY-MM-DD)
+  -to          Filter sessions updated before date (YYYY-MM-DD)
+  -min-tokens  Filter sessions with at least N tokens
+  -tokens      Show token counts in output
 
 Delete Flags:
   -force   Skip confirmation prompt
@@ -920,8 +1320,23 @@ Examples:
   # List named sessions
   token-monitor session list
 
-  # List all sessions
-  token-monitor session list -all
+  # List all sessions with token counts
+  token-monitor session list -all -tokens
+
+  # List sessions sorted by token usage
+  token-monitor session list -sort tokens
+
+  # Filter by project path
+  token-monitor session list -project myapp
+
+  # Filter by date range
+  token-monitor session list -from 2025-11-01 -to 2025-11-30
+
+  # Filter by minimum tokens
+  token-monitor session list -min-tokens 10000
+
+  # Combine filters
+  token-monitor session list -project api -min-tokens 5000 -sort tokens
 
   # Show session details
   token-monitor session show my-project
@@ -937,9 +1352,6 @@ Examples:
 
   # Export session to CSV file
   token-monitor session export my-project -format csv -output session.csv
-
-  # Export by partial UUID
-  token-monitor session export a1b2c3d4 -format csv -output data.csv
 `
 	fmt.Print(help)
 	return nil

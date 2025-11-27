@@ -66,15 +66,18 @@
   - [x] Export to JSON format
   - [x] Include all metrics and metadata
 
-- [ ] Enhanced `session show` output
-  - [ ] Token breakdown by type (table/chart)
-  - [ ] Billing blocks timeline
-  - [ ] Activity timeline with timestamps
+- [x] Enhanced `session show` output ✅ (Completed 2025-11-27)
+  - [x] Token breakdown by type (table)
+  - [x] Billing blocks timeline
+  - [x] Activity timeline with timestamps
+  - [x] Statistics summary (requests, avg/min/max, percentiles)
 
-- [ ] Add `session list` filters
-  - [ ] Filter by project path
-  - [ ] Filter by date range
-  - [ ] Filter by token usage thresholds
+- [x] Add `session list` filters ✅ (Completed 2025-11-27)
+  - [x] Filter by project path (`--project`)
+  - [x] Filter by date range (`--from`, `--to`)
+  - [x] Filter by token usage thresholds (`--min-tokens`)
+  - [x] Sort by tokens (`--sort tokens`)
+  - [x] Show token counts (`--tokens`)
 
 ### Live Monitoring Enhancements
 - [x] Add keyboard shortcuts ✅ (Completed 2025-11-27)
