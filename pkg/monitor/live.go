@@ -201,7 +201,7 @@ func (m *liveMonitor) filterSessions(sessions []discovery.SessionFile) []discove
 }
 
 // initialRead reads all session files from the beginning.
-func (m *liveMonitor) initialRead(ctx context.Context) error {
+func (m *liveMonitor) initialRead(ctx context.Context) error { //nolint:unparam // error return kept for future error handling
 	for sessionID, path := range m.sessionPaths {
 		// Reset position to read from beginning
 		if err := m.reader.Reset(path); err != nil {
@@ -432,4 +432,21 @@ func (m *liveMonitor) Close() error {
 
 	m.logger.Info("live monitor closed")
 	return nil
+}
+
+// ResetStats resets the aggregator statistics and initial baseline.
+// This allows users to start fresh statistics while continuing to monitor.
+func (m *liveMonitor) ResetStats() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Reset the aggregator
+	m.agg.Reset()
+
+	// Reset the baseline stats
+	m.lastStats = aggregator.Statistics{}
+	m.initialStats = aggregator.Statistics{}
+	m.lastDelta = DeltaStats{}
+
+	m.logger.Info("statistics reset")
 }

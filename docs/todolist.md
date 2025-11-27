@@ -4,7 +4,7 @@
 
 **Project Status**: v0.1.0 released! Core functionality complete and production-ready.
 
-**Last Updated**: 2025-11-21
+**Last Updated**: 2025-11-27
 
 ---
 
@@ -61,10 +61,10 @@
   - [x] Validate current configuration
   - [x] Report errors with suggestions
 
-- [ ] Implement `session export <name|uuid>`
-  - [ ] Export to CSV format
-  - [ ] Export to JSON format
-  - [ ] Include all metrics and metadata
+- [x] Implement `session export <name|uuid>` ✅ (Completed 2025-11-27)
+  - [x] Export to CSV format
+  - [x] Export to JSON format
+  - [x] Include all metrics and metadata
 
 - [ ] Enhanced `session show` output
   - [ ] Token breakdown by type (table/chart)
@@ -77,11 +77,11 @@
   - [ ] Filter by token usage thresholds
 
 ### Live Monitoring Enhancements
-- [ ] Add keyboard shortcuts
-  - [ ] `q` - Quit gracefully
-  - [ ] `r` - Reset statistics
-  - [ ] `↑/↓` - Navigate between sessions
-  - [ ] `?` - Show help overlay
+- [x] Add keyboard shortcuts ✅ (Completed 2025-11-27)
+  - [x] `q` - Quit gracefully
+  - [x] `r` - Reset statistics
+  - [ ] `↑/↓` - Navigate between sessions (future enhancement)
+  - [x] `?` - Show help overlay
 
 - [ ] Implement interactive session selection
   - [ ] Show numbered list when no session specified

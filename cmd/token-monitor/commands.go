@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/term"
+
 	"github.com/0xmhha/token-monitor/pkg/aggregator"
 	"github.com/0xmhha/token-monitor/pkg/config"
 	"github.com/0xmhha/token-monitor/pkg/discovery"
@@ -280,42 +282,105 @@ type watchCommand struct {
 	clearScreen bool
 	configPath  string
 	globalOpts  globalOptions
+
+	// Internal state for keyboard handling
+	showHelp   bool
+	lastUpdate *monitor.Update
+}
+
+// watchRuntime holds all runtime dependencies for the watch command.
+// This structure enables dependency injection and easier testing.
+type watchRuntime struct {
+	config     *config.Config
+	log        logger.Logger
+	sessionMgr session.Manager
+	reader     reader.Reader
+	watcher    watcher.Watcher
+	monitor    monitor.LiveMonitor
+}
+
+// Close releases all runtime resources.
+func (rt *watchRuntime) Close() {
+	if rt.watcher != nil {
+		_ = rt.watcher.Close() //nolint:errcheck // best effort cleanup
+	}
+	if rt.reader != nil {
+		_ = rt.reader.Close() //nolint:errcheck // best effort cleanup
+	}
+	if rt.sessionMgr != nil {
+		_ = rt.sessionMgr.Close() //nolint:errcheck // best effort cleanup
+	}
 }
 
 // Execute runs the watch command.
 func (c *watchCommand) Execute() error {
-	// Load configuration
-	cfg, err := config.Load()
+	rt, err := c.initializeRuntime()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
+	}
+	defer rt.Close()
+
+	if err := c.startMonitor(rt); err != nil {
+		return err
 	}
 
-	// Initialize logger (quiet mode for live monitoring unless global log level is set)
-	logLevel := "error" // Only show errors during live monitoring by default
+	return c.runEventLoop(rt)
+}
+
+// initializeRuntime creates and configures all required components.
+func (c *watchCommand) initializeRuntime() (*watchRuntime, error) {
+	rt := &watchRuntime{}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+	rt.config = cfg
+
+	rt.log = c.createLogger(cfg)
+
+	if err := c.initializeStorage(rt); err != nil {
+		rt.Close()
+		return nil, err
+	}
+
+	if err := c.initializeWatcher(rt); err != nil {
+		rt.Close()
+		return nil, err
+	}
+
+	if err := c.initializeMonitor(rt); err != nil {
+		rt.Close()
+		return nil, err
+	}
+
+	return rt, nil
+}
+
+// createLogger creates a logger with appropriate settings.
+func (c *watchCommand) createLogger(cfg *config.Config) logger.Logger {
+	logLevel := "error" // Quiet mode for live monitoring by default
 	if c.globalOpts.logLevel != "" {
 		logLevel = c.globalOpts.logLevel
 	}
 
-	log := logger.New(logger.Config{
+	return logger.New(logger.Config{
 		Level:  logLevel,
 		Format: cfg.Logging.Format,
 		Output: cfg.Logging.Output,
 	})
+}
 
-	// Initialize session manager
+// initializeStorage sets up session manager and reader.
+func (c *watchCommand) initializeStorage(rt *watchRuntime) error {
 	sessionMgr, err := session.New(session.Config{
-		DBPath: cfg.Storage.DBPath,
-	}, log)
+		DBPath: rt.config.Storage.DBPath,
+	}, rt.log)
 	if err != nil {
 		return fmt.Errorf("failed to initialize session manager: %w", err)
 	}
-	defer func() {
-		if closeErr := sessionMgr.Close(); closeErr != nil {
-			log.Error("failed to close session manager", "error", closeErr)
-		}
-	}()
+	rt.sessionMgr = sessionMgr
 
-	// Initialize position store and reader
 	positionStore, err := reader.NewBoltPositionStore(sessionMgr.DB())
 	if err != nil {
 		return fmt.Errorf("failed to initialize position store: %w", err)
@@ -324,72 +389,185 @@ func (c *watchCommand) Execute() error {
 	r, err := reader.New(reader.Config{
 		PositionStore: positionStore,
 		Parser:        parser.New(),
-	}, log)
+	}, rt.log)
 	if err != nil {
 		return fmt.Errorf("failed to initialize reader: %w", err)
 	}
-	defer func() {
-		if closeErr := r.Close(); closeErr != nil {
-			log.Error("failed to close reader", "error", closeErr)
-		}
-	}()
+	rt.reader = r
 
-	// Initialize watcher
+	return nil
+}
+
+// initializeWatcher sets up the file watcher.
+func (c *watchCommand) initializeWatcher(rt *watchRuntime) error {
 	w, err := watcher.New(watcher.Config{
 		DebounceInterval: 100 * time.Millisecond,
-	}, log)
+	}, rt.log)
 	if err != nil {
 		return fmt.Errorf("failed to initialize watcher: %w", err)
 	}
-	defer func() {
-		if closeErr := w.Close(); closeErr != nil {
-			log.Error("failed to close watcher", "error", closeErr)
-		}
-	}()
+	rt.watcher = w
+	return nil
+}
 
-	// Initialize discovery
-	disc := discovery.New(cfg.ClaudeConfigDirs, log)
+// initializeMonitor creates the live monitor.
+func (c *watchCommand) initializeMonitor(rt *watchRuntime) error {
+	disc := discovery.New(rt.config.ClaudeConfigDirs, rt.log)
 
-	// Build session filter
 	var sessionIDs []string
 	if c.sessionID != "" {
 		sessionIDs = []string{c.sessionID}
 	}
 
-	// Create monitor
 	mon, err := monitor.New(monitor.Config{
 		SessionIDs:      sessionIDs,
 		RefreshInterval: c.refresh,
 		ClearScreen:     c.clearScreen,
-	}, w, r, disc, log)
+	}, rt.watcher, rt.reader, disc, rt.log)
 	if err != nil {
 		return fmt.Errorf("failed to create monitor: %w", err)
 	}
+	rt.monitor = mon
 
-	// Setup signal handling
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	return nil
+}
 
-	// Start monitor in goroutine
+// startMonitor begins the monitoring process.
+func (c *watchCommand) startMonitor(rt *watchRuntime) error {
 	errChan := make(chan error, 1)
 	go func() {
-		if err := mon.Start(); err != nil {
+		if err := rt.monitor.Start(); err != nil {
 			errChan <- err
 		}
 	}()
 
-	// Type assertion to access Updates method
-	liveMonitor, ok := mon.(interface{ Updates() <-chan monitor.Update })
-	if !ok {
+	// Give monitor time to start and check for immediate errors
+	select {
+	case err := <-errChan:
+		return fmt.Errorf("monitor error: %w", err)
+	case <-time.After(100 * time.Millisecond):
+		return nil
+	}
+}
+
+// runEventLoop handles signals, keyboard input, and monitor updates.
+func (c *watchCommand) runEventLoop(rt *watchRuntime) error {
+	sigChan := c.setupSignalHandler()
+	keyChan, cleanup := c.setupKeyboardInput()
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	updatesChan := c.getUpdatesChannel(rt.monitor)
+	if updatesChan == nil {
 		return fmt.Errorf("monitor does not support updates channel")
 	}
 
-	// Clear screen and display initial header
+	c.displayInitialScreen()
+
+	return c.processEvents(rt, sigChan, keyChan, updatesChan)
+}
+
+// setupSignalHandler configures OS signal handling.
+func (c *watchCommand) setupSignalHandler() <-chan os.Signal {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	return sigChan
+}
+
+// setupKeyboardInput configures terminal for raw input mode.
+// Returns a channel for key events and a cleanup function.
+func (c *watchCommand) setupKeyboardInput() (<-chan byte, func()) {
+	keyChan := make(chan byte, 10)
+
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return keyChan, nil
+	}
+
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		return keyChan, nil
+	}
+
+	// Start keyboard reader goroutine
+	go c.readKeyboardInput(keyChan)
+
+	cleanup := func() {
+		_ = term.Restore(int(os.Stdin.Fd()), oldState) //nolint:errcheck
+	}
+
+	return keyChan, cleanup
+}
+
+// readKeyboardInput reads bytes from stdin and sends to channel.
+func (c *watchCommand) readKeyboardInput(keyChan chan<- byte) {
+	buf := make([]byte, 1)
+	for {
+		n, err := os.Stdin.Read(buf)
+		if err != nil || n == 0 {
+			return
+		}
+		select {
+		case keyChan <- buf[0]:
+		default:
+		}
+	}
+}
+
+// getUpdatesChannel extracts the updates channel from the monitor.
+func (c *watchCommand) getUpdatesChannel(mon monitor.LiveMonitor) <-chan monitor.Update {
+	liveMonitor, ok := mon.(interface{ Updates() <-chan monitor.Update })
+	if !ok {
+		return nil
+	}
+	return liveMonitor.Updates()
+}
+
+// displayInitialScreen clears and shows the header.
+func (c *watchCommand) displayInitialScreen() {
 	if c.clearScreen {
 		fmt.Print("\033[2J\033[H")
 	}
+	c.displayHeader()
+}
 
-	fmt.Println("🔍 Live Token Monitor - Press Ctrl+C to stop")
+// processEvents is the main event loop.
+func (c *watchCommand) processEvents(
+	rt *watchRuntime,
+	sigChan <-chan os.Signal,
+	keyChan <-chan byte,
+	updatesChan <-chan monitor.Update,
+) error { //nolint:unparam // error return kept for future error handling
+	for {
+		select {
+		case <-sigChan:
+			c.handleQuit(rt.monitor, rt.log)
+			return nil
+
+		case key := <-keyChan:
+			if c.handleKeyPress(key, rt.monitor, rt.log) == "quit" {
+				return nil
+			}
+
+		case update := <-updatesChan:
+			c.handleUpdate(update)
+		}
+	}
+}
+
+// handleUpdate processes a monitor update event.
+func (c *watchCommand) handleUpdate(update monitor.Update) {
+	c.lastUpdate = &update
+	if c.showHelp {
+		c.displayHelpOverlay()
+	} else {
+		c.displayUpdate(update)
+	}
+}
+
+// displayHeader shows the initial header for the watch command.
+func (c *watchCommand) displayHeader() {
+	fmt.Println("🔍 Live Token Monitor - Press ? for help, q to quit")
 	if c.sessionID != "" {
 		fmt.Printf("Session: %s | ", c.sessionID)
 	} else {
@@ -398,26 +576,95 @@ func (c *watchCommand) Execute() error {
 	fmt.Printf("Refresh: %s\n", c.refresh)
 	fmt.Println(strings.Repeat("─", 80))
 	fmt.Println()
+}
 
-	// Process updates
-	for {
-		select {
-		case <-sigChan:
-			// Move cursor down and print exit message
-			fmt.Print("\n\n")
-			fmt.Println("Stopping monitor...")
-			if err := mon.Stop(); err != nil {
-				log.Error("failed to stop monitor", "error", err)
+// handleKeyPress processes keyboard input and returns an action.
+func (c *watchCommand) handleKeyPress(key byte, mon monitor.LiveMonitor, log logger.Logger) string {
+	switch key {
+	case 'q', 'Q', 3: // 'q', 'Q', or Ctrl+C
+		c.handleQuit(mon, log)
+		return "quit"
+
+	case 'r', 'R':
+		c.handleReset(mon, log)
+		return "reset"
+
+	case '?', 'h', 'H':
+		c.showHelp = !c.showHelp
+		if c.showHelp {
+			c.displayHelpOverlay()
+		} else if c.lastUpdate != nil {
+			// Redraw the stats display
+			if c.clearScreen {
+				fmt.Print("\033[2J\033[H")
+				c.displayHeader()
 			}
-			return nil
-
-		case err := <-errChan:
-			return fmt.Errorf("monitor error: %w", err)
-
-		case update := <-liveMonitor.Updates():
-			c.displayUpdate(update)
+			c.displayUpdate(*c.lastUpdate)
 		}
+		return "help"
+
+	case 27: // ESC key - close help overlay
+		if c.showHelp {
+			c.showHelp = false
+			if c.lastUpdate != nil {
+				if c.clearScreen {
+					fmt.Print("\033[2J\033[H")
+					c.displayHeader()
+				}
+				c.displayUpdate(*c.lastUpdate)
+			}
+		}
+		return "esc"
 	}
+
+	return ""
+}
+
+// handleQuit gracefully stops the monitor.
+func (c *watchCommand) handleQuit(mon monitor.LiveMonitor, log logger.Logger) {
+	// Move cursor down and print exit message
+	fmt.Print("\n\n")
+	fmt.Println("Stopping monitor...")
+	if err := mon.Stop(); err != nil {
+		log.Error("failed to stop monitor", "error", err)
+	}
+}
+
+// handleReset resets the monitor statistics.
+func (c *watchCommand) handleReset(mon monitor.LiveMonitor, log logger.Logger) {
+	// Try to reset using the Resettable interface
+	if resettable, ok := mon.(interface{ ResetStats() }); ok {
+		resettable.ResetStats()
+		log.Info("statistics reset")
+	}
+
+	// Show reset confirmation
+	if c.clearScreen {
+		fmt.Print("\033[2J\033[H")
+		c.displayHeader()
+	}
+	fmt.Println("📊 Statistics have been reset")
+	fmt.Println()
+}
+
+// displayHelpOverlay shows the keyboard shortcuts help.
+func (c *watchCommand) displayHelpOverlay() {
+	if c.clearScreen {
+		fmt.Print("\033[5;1H\033[J") // Move to line 5 and clear
+	}
+
+	fmt.Println()
+	fmt.Println("┌─────────────────────────────────────────────────────────┐")
+	fmt.Println("│                  Keyboard Shortcuts                     │")
+	fmt.Println("├─────────────────────────────────────────────────────────┤")
+	fmt.Println("│  q, Q, Ctrl+C    Quit the monitor                       │")
+	fmt.Println("│  r, R            Reset statistics                       │")
+	fmt.Println("│  ?, h, H         Toggle this help overlay               │")
+	fmt.Println("│  ESC             Close this help overlay                │")
+	fmt.Println("├─────────────────────────────────────────────────────────┤")
+	fmt.Println("│  Press any key to close this help and return to stats   │")
+	fmt.Println("└─────────────────────────────────────────────────────────┘")
+	fmt.Println()
 }
 
 // displayUpdate renders a live monitoring update.
