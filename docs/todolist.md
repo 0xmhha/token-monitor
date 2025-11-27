@@ -291,13 +291,16 @@
 **CLI Commands**
 - ✅ `stats` - Display aggregated statistics
 - ✅ `list` - List all discovered sessions
-- ✅ `watch` - Live monitoring with real-time updates
+- ✅ `watch` - Live monitoring with real-time updates and keyboard shortcuts
 - ✅ `session name` - Assign friendly names
-- ✅ `session list` - List sessions with sorting
-- ✅ `session show` - Show session details
+- ✅ `session list` - List sessions with sorting and filters
+- ✅ `session show` - Show detailed session info with token breakdown
 - ✅ `session delete` - Remove session metadata
+- ✅ `session export` - Export session data to CSV/JSON
 - ✅ `config show` - Display current configuration
 - ✅ `config path` - Show configuration file paths
+- ✅ `config set` - Update configuration values
+- ✅ `config validate` - Validate current configuration
 - ✅ `config reset` - Reset to defaults
 
 **Display**
@@ -307,6 +310,9 @@
 - ✅ Real-time terminal updates (no flickering)
 - ✅ Burn rate display (tokens/min, tokens/hour)
 - ✅ Billing block progress
+- ✅ Token breakdown by type (input/output/cache)
+- ✅ Activity timeline with timestamps
+- ✅ Keyboard shortcuts (q/r/?)
 
 **Testing**
 - ✅ Comprehensive unit tests (71-90% coverage)
@@ -326,20 +332,25 @@
 - ✅ TESTING.md - Testing guide with strategy and best practices
 - ✅ Inline code documentation
 
-### 🎯 Next Milestone: v0.1.0 Release
+### 🎯 Next Milestone: v0.2.0 Release
 
-**Remaining for v0.1.0:**
-1. Manual testing on target platforms (optional)
-2. Create and publish release
+**Target Features for v0.2.0:**
+1. Interactive session selection
+2. Session metadata enhancements (tagging, descriptions)
+3. Database migrations system
+4. Homebrew tap for easy installation
 
-**Estimated Effort**: < 1 day
+**Optional Enhancements:**
+- TUI dashboard with Bubbletea
+- Performance optimizations (caching, worker pools)
 
 ---
 
 ## 📝 Notes
 
+- v0.1.0 released and production-ready
 - All core functionality is working and tested
 - Code quality verified with golangci-lint
 - All tests pass with race detector
-- Ready for production use after documentation
+- Post-release improvements ongoing (CLI enhancements, filters, export)
 - Future enhancements are optional improvements
