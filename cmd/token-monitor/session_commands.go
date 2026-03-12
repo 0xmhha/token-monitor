@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -989,7 +990,7 @@ type ExportSummary struct {
 // runExport exports session data to CSV or JSON format.
 func (c *sessionCommand) runExport(args []string) error {
 	fs := flag.NewFlagSet("session export", flag.ExitOnError)
-	format := fs.String("format", "json", "output format: json, csv")
+	format := fs.String("format", "json", "output format: json, csv, agent-forge")
 	output := fs.String("output", "", "output file path (default: stdout)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -1003,8 +1004,8 @@ func (c *sessionCommand) runExport(args []string) error {
 
 	// Validate format.
 	*format = strings.ToLower(*format)
-	if *format != "json" && *format != "csv" {
-		return fmt.Errorf("invalid format '%s': must be 'json' or 'csv'", *format)
+	if *format != "json" && *format != "csv" && *format != "agent-forge" {
+		return fmt.Errorf("invalid format '%s': must be 'json', 'csv', or 'agent-forge'", *format)
 	}
 
 	// Load configuration.
@@ -1160,6 +1161,10 @@ func (c *sessionCommand) writeExportOutput(
 		if err := writeCSV(writer, data); err != nil {
 			return fmt.Errorf("failed to write CSV: %w", err)
 		}
+	case "agent-forge":
+		if err := writeAgentForge(writer, data); err != nil {
+			return fmt.Errorf("failed to write agent-forge format: %w", err)
+		}
 	}
 
 	if output != "" {
@@ -1282,6 +1287,66 @@ func writeCSV(w *os.File, data ExportData) error {
 	return nil
 }
 
+// agentForgeTokens is the agent-forge session-log compatible tokens format.
+type agentForgeTokens struct {
+	Total       int      `json:"total"`
+	Input       int      `json:"input"`
+	Output      int      `json:"output"`
+	CacheRead   int      `json:"cache_read"`
+	CacheCreate int      `json:"cache_create"`
+	CostUSD     *float64 `json:"cost_usd,omitempty"`
+}
+
+// agentForgeOutput is the agent-forge session-log compatible export format.
+type agentForgeOutput struct {
+	SessionID       string           `json:"session_id"`
+	Date            string           `json:"date"`
+	Project         string           `json:"project"`
+	Tokens          agentForgeTokens `json:"tokens"`
+	DurationMinutes int              `json:"duration_minutes"`
+}
+
+// writeAgentForge writes export data in agent-forge session-log compatible format.
+// This format maps directly to the tokens section of agent-forge Phase 4 session-log-schema.
+func writeAgentForge(w *os.File, data ExportData) error {
+	var durationMinutes int
+
+	if data.Summary.FirstEntry != "" && data.Summary.LastEntry != "" {
+		first, errFirst := time.Parse(time.RFC3339, data.Summary.FirstEntry)
+		last, errLast := time.Parse(time.RFC3339, data.Summary.LastEntry)
+
+		if errFirst == nil && errLast == nil {
+			durationMinutes = int(math.Round(last.Sub(first).Minutes()))
+		}
+	}
+
+	var costPtr *float64
+	if data.Summary.TotalCostUSD > 0 {
+		cost := data.Summary.TotalCostUSD
+		costPtr = &cost
+	}
+
+	output := agentForgeOutput{
+		SessionID: data.SessionID,
+		Date:      data.CreatedAt.Format("2006-01-02"),
+		Project:   filepath.Base(data.ProjectPath),
+		Tokens: agentForgeTokens{
+			Total:       data.Summary.TotalTokens,
+			Input:       data.Summary.TotalInputTokens,
+			Output:      data.Summary.TotalOutputTokens,
+			CacheRead:   data.Summary.TotalCacheReadTokens,
+			CacheCreate: data.Summary.TotalCacheCreationTokens,
+			CostUSD:     costPtr,
+		},
+		DurationMinutes: durationMinutes,
+	}
+
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+
+	return encoder.Encode(output)
+}
+
 // showHelp displays session command help.
 func (c *sessionCommand) showHelp() error {
 	help := `Session Management Commands
@@ -1294,7 +1359,7 @@ Subcommands:
   list [flags]          List all sessions with metadata
   show <name|uuid>      Display detailed session information
   delete <name|uuid>    Remove session metadata (preserves data files)
-  export <name|uuid>    Export session data to CSV or JSON format
+  export <name|uuid>    Export session data (json, csv, agent-forge)
   help                  Show this help message
 
 List Flags:
