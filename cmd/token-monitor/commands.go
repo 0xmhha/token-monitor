@@ -489,6 +489,10 @@ func (c *watchCommand) setupKeyboardInput() (<-chan byte, func()) {
 		return keyChan, nil
 	}
 
+	// Re-enable output processing so \n is converted to \r\n.
+	// term.MakeRaw disables OPOST, causing staircase output in tables.
+	enableOutputProcessing(int(os.Stdin.Fd()))
+
 	// Start keyboard reader goroutine
 	go c.readKeyboardInput(keyChan)
 
@@ -615,6 +619,20 @@ func (c *watchCommand) handleKeyPress(key byte, mon monitor.LiveMonitor, log log
 			}
 		}
 		return "esc"
+
+	default:
+		// Any other key closes the help overlay
+		if c.showHelp {
+			c.showHelp = false
+			if c.lastUpdate != nil {
+				if c.clearScreen {
+					fmt.Print("\033[2J\033[H")
+					c.displayHeader()
+				}
+				c.displayUpdate(*c.lastUpdate)
+			}
+			return "close-help"
+		}
 	}
 
 	return ""
