@@ -190,6 +190,16 @@ func (m *mockDiscovery) DiscoverProject(projectPath string) ([]discovery.Session
 	return filtered, nil
 }
 
+func (m *mockDiscovery) FindCurrentSession() (*discovery.SessionFile, error) {
+	if m.discoverErr != nil {
+		return nil, m.discoverErr
+	}
+	if len(m.sessions) == 0 {
+		return nil, discovery.ErrNoCurrentSession
+	}
+	return &m.sessions[0], nil
+}
+
 // Helper to create test entries.
 func createTestEntry(sessionID string, tokens int) parser.UsageEntry {
 	return parser.UsageEntry{

@@ -66,3 +66,5 @@ temp/
 # Testing
 coverage.txt
 coverage.html
+
+.claude/settings.local.json

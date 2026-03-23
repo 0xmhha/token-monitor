@@ -80,6 +80,12 @@ func run() error {
 		return runSessionCommand(globalOpts, args[1:])
 	case "config":
 		return runConfigCommand(globalOpts, args[1:])
+	case "query":
+		return runQueryCommand(globalOpts, args[1:])
+	case "status":
+		return runStatusCommand(globalOpts, args[1:])
+	case "serve":
+		return runServeCommand(globalOpts, args[1:])
 	case "help":
 		return showUsage()
 	default:
@@ -208,6 +214,32 @@ func runWatchCommand(globalOpts globalOptions, args []string) error {
 	return cmd.Execute()
 }
 
+// runQueryCommand runs the fast query command (no BoltDB).
+func runQueryCommand(globalOpts globalOptions, args []string) error {
+	fs := flag.NewFlagSet("query", flag.ExitOnError)
+	current := fs.Bool("current", false, "auto-detect current session")
+	sessionID := fs.String("session", "", "specify session ID directly")
+	metric := fs.String("metric", "", "metric to output (total, input, output, count, burn-rate, burn-rate-hour, block-remaining, block-tokens)")
+	jsonOut := fs.Bool("json", false, "output all metrics as JSON")
+	format := fs.String("format", "", "output format (hook)")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	cmd := &queryCommand{
+		current:    *current,
+		sessionID:  *sessionID,
+		metric:     *metric,
+		jsonOutput: *jsonOut,
+		format:     *format,
+		configPath: globalOpts.configPath,
+		globalOpts: globalOpts,
+	}
+
+	return cmd.Execute()
+}
+
 // showUsage displays usage information.
 func showUsage() error {
 	usage := `Token Monitor - Claude Code CLI token usage monitoring tool
@@ -222,6 +254,9 @@ Commands:
   watch       Live monitoring of token usage
   session     Session management (name, list, show, delete)
   config      Configuration management (show, path, set, validate, reset)
+  query       Fast single-metric token lookup (for hooks)
+  status      Compact status line output (for Claude Code status)
+  serve       MCP server mode (for Claude Code MCP integration)
   help        Show this help message
 
 Global Flags:
@@ -244,6 +279,25 @@ Watch Command Flags:
   -refresh    Refresh interval (default: 1s, e.g., 500ms, 2s)
   -format     Output format (table, simple)
   -history    Keep history of updates (append mode, default: false)
+
+Query Command Flags:
+  -current    Auto-detect current session
+  -session    Specify session ID directly
+  -metric     Metric to output (total, input, output, count, burn-rate, burn-rate-hour, block-remaining, block-tokens)
+  -json       Output all metrics as JSON
+  -format     Output format (hook)
+
+Status Command Flags:
+  -current    Auto-detect current session
+  -session    Specify session ID directly
+  -compact    Minimal output (~13 chars)
+  -full       Verbose output (~75 chars)
+  -no-emoji   Omit emoji prefix
+  -watch      Continuous output mode
+  -interval   Watch refresh interval (default: 5s)
+
+Serve Command Flags:
+  -stdio      Use stdio for MCP communication (default: true)
 
 Examples:
   # Show overall statistics
@@ -290,6 +344,19 @@ Examples:
   token-monitor config set logging.level debug
   token-monitor config validate
   token-monitor config reset
+
+Integration Examples:
+  # Fast token query (for PostToolUse hooks)
+  token-monitor query --current --metric total
+
+  # All metrics as JSON
+  token-monitor query --current --json
+
+  # Compact status for Claude Code status line
+  token-monitor status --current --compact
+
+  # Start MCP server
+  token-monitor serve --stdio
 
 Version: %s
 `

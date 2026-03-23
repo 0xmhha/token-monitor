@@ -12,4 +12,7 @@ var (
 
 	// ErrInvalidPath is returned when a path is invalid or inaccessible.
 	ErrInvalidPath = errors.New("invalid or inaccessible path")
+
+	// ErrNoCurrentSession is returned when no active session can be determined.
+	ErrNoCurrentSession = errors.New("no active session found")
 )

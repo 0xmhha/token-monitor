@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 )
 
 // Logger defines the logging interface used by the discovery package.
@@ -70,12 +72,23 @@ type Discoverer interface {
 	//   - Slice of session files in the project
 	//   - Error if directory cannot be accessed
 	DiscoverProject(projectPath string) ([]SessionFile, error)
+
+	// FindCurrentSession returns the most recently active session.
+	//
+	// Detection priority:
+	//  1. CLAUDE_SESSION_ID env var → find matching session file
+	//  2. CLAUDE_PROJECT_DIR env var → most recent .jsonl in that dir
+	//  3. Default dirs → most recently modified .jsonl
+	FindCurrentSession() (*SessionFile, error)
 }
 
 // discoverer implements the Discoverer interface.
 type discoverer struct {
-	baseDirs []string // Claude config directories to scan
-	logger   Logger
+	baseDirs     []string // Claude config directories to scan
+	logger       Logger
+	cacheMu      sync.Mutex
+	currentCache *SessionFile
+	cacheTime    time.Time
 }
 
 // New creates a new Discoverer instance.

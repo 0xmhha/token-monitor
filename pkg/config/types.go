@@ -47,6 +47,9 @@ type Config struct {
 
 	// Logging settings
 	Logging LoggingConfig `yaml:"logging"`
+
+	// Integration settings for Claude Code extension ecosystem
+	Integration IntegrationConfig `yaml:"integration"`
 }
 
 // MonitoringConfig contains monitoring-related settings.
@@ -104,6 +107,48 @@ type LoggingConfig struct {
 
 	// Log format (text, json)
 	Format string `yaml:"format"`
+}
+
+// IntegrationConfig contains settings for Claude Code integration features.
+type IntegrationConfig struct {
+	// AutoDetect enables automatic session detection for --current flag.
+	AutoDetect bool `yaml:"auto_detect"`
+
+	// Daemon settings for persistent background process.
+	Daemon DaemonConfig `yaml:"daemon"`
+
+	// MCP settings for Model Context Protocol server.
+	MCP MCPConfig `yaml:"mcp"`
+
+	// Status settings for status line output.
+	Status StatusConfig `yaml:"status"`
+}
+
+// DaemonConfig contains daemon process settings.
+type DaemonConfig struct {
+	// Enabled starts the daemon on first query.
+	Enabled bool `yaml:"enabled"`
+
+	// SocketPath is the Unix socket path for daemon communication.
+	SocketPath string `yaml:"socket_path"`
+
+	// AutoStart automatically starts daemon on first query --current call.
+	AutoStart bool `yaml:"auto_start"`
+}
+
+// MCPConfig contains MCP server settings.
+type MCPConfig struct {
+	// Enabled allows the serve command to start.
+	Enabled bool `yaml:"enabled"`
+}
+
+// StatusConfig contains status line display settings.
+type StatusConfig struct {
+	// Format is the default status output format: "compact", "default", "full".
+	Format string `yaml:"format"`
+
+	// Emoji enables emoji in status output.
+	Emoji bool `yaml:"emoji"`
 }
 
 // Validate checks if the configuration satisfies all invariants.
@@ -211,6 +256,21 @@ func Default() *Config {
 			Level:  "info",
 			Output: "stderr",
 			Format: "text",
+		},
+		Integration: IntegrationConfig{
+			AutoDetect: true,
+			Daemon: DaemonConfig{
+				Enabled:    false,
+				SocketPath: "/tmp/token-monitor.sock",
+				AutoStart:  false,
+			},
+			MCP: MCPConfig{
+				Enabled: false,
+			},
+			Status: StatusConfig{
+				Format: "default",
+				Emoji:  true,
+			},
 		},
 	}
 }
