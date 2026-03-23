@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/0xmhha/token-monitor/pkg/tui"
 )
 
 // version is set during build time.
@@ -48,14 +50,6 @@ func run() error {
 		return nil
 	}
 
-	// Get command.
-	args := flag.Args()
-	if len(args) == 0 {
-		return showUsage()
-	}
-
-	command := args[0]
-
 	// Create global options.
 	globalOpts := globalOptions{
 		configPath: *configPath,
@@ -64,7 +58,18 @@ func run() error {
 		noColor:    *noColor,
 	}
 
+	// Get command.
+	args := flag.Args()
+	if len(args) == 0 {
+		// Default: launch TUI
+		return runTUICommand(globalOpts, nil)
+	}
+
+	command := args[0]
+
 	switch command {
+	case "tui":
+		return runTUICommand(globalOpts, args[1:])
 	case "stats":
 		return runStatsCommand(globalOpts, args[1:])
 	case "list":
@@ -80,6 +85,25 @@ func run() error {
 	default:
 		return fmt.Errorf("unknown command: %s", command)
 	}
+}
+
+// runTUICommand launches the interactive TUI dashboard.
+func runTUICommand(globalOpts globalOptions, args []string) error {
+	fs := flag.NewFlagSet("tui", flag.ExitOnError)
+	sessionID := fs.String("session", "", "monitor specific session ID")
+	refresh := fs.Duration("refresh", time.Second, "refresh interval (e.g., 1s, 500ms)")
+
+	if args != nil {
+		if err := fs.Parse(args); err != nil {
+			return err
+		}
+	}
+
+	return tui.New(tui.Options{
+		SessionID: *sessionID,
+		Refresh:   *refresh,
+		LogLevel:  globalOpts.logLevel,
+	})
 }
 
 // runStatsCommand runs the stats command.
@@ -192,6 +216,7 @@ Usage:
   token-monitor [flags] <command> [command flags]
 
 Commands:
+  tui         Interactive TUI dashboard (default when no command given)
   stats       Display token usage statistics
   list        List all discovered sessions
   watch       Live monitoring of token usage

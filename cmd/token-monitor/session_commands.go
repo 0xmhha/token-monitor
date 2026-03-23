@@ -47,6 +47,8 @@ func (c *sessionCommand) Execute(args []string) error {
 		return c.runDelete(subargs)
 	case "export":
 		return c.runExport(subargs)
+	case "compare":
+		return c.runCompare(subargs)
 	case "help":
 		return c.showHelp()
 	default:
@@ -1360,6 +1362,7 @@ Subcommands:
   show <name|uuid>      Display detailed session information
   delete <name|uuid>    Remove session metadata (preserves data files)
   export <name|uuid>    Export session data (json, csv, agent-forge)
+  compare <a> <b>       Compare two sessions side by side
   help                  Show this help message
 
 List Flags:
@@ -1417,6 +1420,15 @@ Examples:
 
   # Export session to CSV file
   token-monitor session export my-project -format csv -output session.csv
+
+  # Compare two sessions
+  token-monitor session compare session-a session-b
+
+  # Compare with more turns shown
+  token-monitor session compare session-a session-b -turns 20
+
+Compare Flags:
+  -turns   Maximum turns to show in turn-by-turn comparison (default: 10)
 `
 	fmt.Print(help)
 	return nil

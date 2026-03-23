@@ -62,9 +62,11 @@ type Usage struct {
 }
 
 // Content represents a content block in the message.
+// For tool_use blocks, Name contains the tool name (e.g., "Read", "Write", "Bash").
 type Content struct {
 	Type string  `json:"type"`
 	Text *string `json:"text,omitempty"`
+	Name string  `json:"name,omitempty"`
 }
 
 // TotalTokens returns the sum of all token types.
