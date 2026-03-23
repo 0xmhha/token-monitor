@@ -55,6 +55,7 @@ func (c *statsCommand) Execute() error {
 }
 
 // initialize sets up configuration and components.
+// Falls back to in-memory position store if BoltDB is locked by another process.
 func (c *statsCommand) initialize() (*config.Config, logger.Logger, session.Manager, reader.Reader, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -73,16 +74,21 @@ func (c *statsCommand) initialize() (*config.Config, logger.Logger, session.Mana
 		Output: cfg.Logging.Output,
 	})
 
-	sessionMgr, err := session.New(session.Config{
+	var sessionMgr session.Manager
+	var positionStore reader.PositionStore
+
+	sessionMgr, err = session.New(session.Config{
 		DBPath: cfg.Storage.DBPath,
 	}, log)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to initialize session manager: %w", err)
-	}
-
-	positionStore, err := reader.NewBoltPositionStore(sessionMgr.DB())
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to initialize position store: %w", err)
+		log.Warn("BoltDB unavailable, using in-memory position store", "error", err)
+		positionStore = reader.NewMemoryPositionStore()
+	} else {
+		positionStore, err = reader.NewBoltPositionStore(sessionMgr.DB())
+		if err != nil {
+			log.Warn("failed to create BoltDB position store, using in-memory", "error", err)
+			positionStore = reader.NewMemoryPositionStore()
+		}
 	}
 
 	r, err := reader.New(reader.Config{
@@ -372,18 +378,26 @@ func (c *watchCommand) createLogger(cfg *config.Config) logger.Logger {
 }
 
 // initializeStorage sets up session manager and reader.
+// Falls back to in-memory position store if BoltDB is locked by another process
+// (e.g., MCP serve), so watch can still run in read-only mode.
 func (c *watchCommand) initializeStorage(rt *watchRuntime) error {
 	sessionMgr, err := session.New(session.Config{
 		DBPath: rt.config.Storage.DBPath,
 	}, rt.log)
-	if err != nil {
-		return fmt.Errorf("failed to initialize session manager: %w", err)
-	}
-	rt.sessionMgr = sessionMgr
 
-	positionStore, err := reader.NewBoltPositionStore(sessionMgr.DB())
+	var positionStore reader.PositionStore
 	if err != nil {
-		return fmt.Errorf("failed to initialize position store: %w", err)
+		rt.log.Warn("BoltDB unavailable, using in-memory position store",
+			"error", err)
+		positionStore = reader.NewMemoryPositionStore()
+	} else {
+		rt.sessionMgr = sessionMgr
+		positionStore, err = reader.NewBoltPositionStore(sessionMgr.DB())
+		if err != nil {
+			rt.log.Warn("failed to create BoltDB position store, using in-memory",
+				"error", err)
+			positionStore = reader.NewMemoryPositionStore()
+		}
 	}
 
 	r, err := reader.New(reader.Config{

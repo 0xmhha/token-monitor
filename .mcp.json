@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "token-monitor": {
+      "command": "/Users/wm-it-22-00661/Work/github/token-monitor/bin/token-monitor",
+      "args": ["serve", "--stdio"]
+    }
+  }
+}
