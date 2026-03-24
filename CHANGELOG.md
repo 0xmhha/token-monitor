@@ -7,15 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [0.1.1] - 2026-03-24
 
-### Planned
-- Keyboard shortcuts for live monitoring (q, r, ↑/↓, ?)
-- Interactive session selection
-- Enhanced session export (CSV, JSON)
-- TUI dashboard with bubbletea
-- Cost calculation integration
-- Advanced filtering for session list
+### Added
+
+#### Claude Code Integration
+- **`query` command**: Fast single-metric token lookup (<100ms, no BoltDB)
+  - Metrics: total, input, output, count, burn-rate, burn-rate-hour, block-remaining, block-tokens
+  - JSON output and hook-compatible format
+- **`status` command**: Compact formatted output for Claude Code status line
+  - Three formats: compact (~13 chars), default (~45 chars), full (~75 chars)
+  - Watch mode with configurable interval
+  - `--no-emoji` flag
+- **`serve` command**: MCP JSON-RPC 2.0 server over stdio
+  - Tools: get_token_usage, get_burn_rate, get_billing_block, list_sessions, get_session_detail, compare_sessions
+- **Session auto-detection** (`--current` flag)
+  - Priority: CLAUDE_SESSION_ID env var > CLAUDE_PROJECT_DIR > most recent session
+  - 1-second result cache for repeated calls
+- **K/M number formatting** for compact display (e.g., 12.5K, 1.2M)
+- **Integration config schema** (auto_detect, daemon, mcp, status settings)
+- **MCP server project config** (`.mcp.json`)
+
+#### Interactive TUI
+- **Bubbletea dashboard** as default command with real-time updates
+- Session list, stats panel, help overlay
+
+#### Session Enhancements
+- Session list filters (`--project`, `--from`, `--to`, `--min-tokens`)
+- Enhanced session show output (token breakdown, timeline, statistics)
+- Session export to CSV, JSON, and agent-forge format
+- Keyboard shortcuts in watch mode (`q`, `r`, `?`, ESC)
+- `config set` and `config validate` commands
+
+### Fixed
+- BoltDB lock conflict when MCP serve is running — watch/stats now fallback to in-memory position store
+- OPOST terminal flag restored after MakeRaw to prevent staircase output
+- Help overlay closes on any key press
+
+### Changed
+- README rewritten with feature table, integration guide, and troubleshooting
+- Documentation consolidated: removed redundant API.md, DESIGN.md, todolist.md, USAGE.md, RELEASE_NOTES.md
+- Roadmap updated to reflect completed features
 
 ---
 
@@ -28,199 +60,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Auto-discovery of Claude Code session files
   - Real-time file watching with fsnotify
   - Incremental reading with position tracking
-  - Live terminal updates without flickering
 
 - **Token Aggregation**: Comprehensive token usage tracking
-  - Per-session statistics with breakdown by token type
-  - Input, output, cache creation, and cache read tokens
-  - Burn rate calculation (tokens/min, tokens/hour)
-  - 5-minute sliding window for accurate rate estimation
+  - Per-session statistics with breakdown by token type (input, output, cache creation, cache read)
+  - Burn rate calculation (tokens/min, tokens/hour) with 5-minute sliding window
 
 - **Billing Block Tracking**: UTC-based 5-hour billing window monitoring
-  - Automatic billing block detection
-  - Progress tracking within current block
-  - Token projection to block limit
-  - Block boundary alerts
+  - Automatic billing block detection with progress tracking
 
-- **Session Management**: Metadata storage and organization
-  - BoltDB-based persistent storage
+- **Session Management**: BoltDB-based persistent storage
   - Friendly session naming with UUID mapping
-  - Fast lookups by name or UUID
-  - Session CRUD operations
-  - Automatic session discovery
+  - Fast lookups by name or UUID, CRUD operations
 
 #### CLI Commands
-
-- **`stats`**: Display aggregated token statistics
-  - Group by model, session, date, or hour
-  - Show top N sessions by usage
-  - Multiple output formats (table, JSON, simple)
-  - Filter by session or model
-
-- **`list`**: List all discovered sessions
-  - Shows UUID, name, project path, last activity
-  - Simple table format
-
-- **`watch`**: Live monitoring with real-time updates
-  - Monitor all sessions or specific session
-  - Configurable refresh interval (default: 1s)
-  - Shows burn rate and billing block status
-  - Delta tracking (cumulative and per-update)
-  - Table or simple output format
-  - History mode (append without clearing screen)
-
-- **`session name`**: Assign friendly names to sessions
-  - Auto-creates session if doesn't exist
-  - Validates name uniqueness
-  - Names usable anywhere UUIDs are accepted
-
-- **`session list`**: List sessions with sorting
-  - Sort by name, date, or UUID
-  - Show all or only named sessions
-  - Table format with metadata
-
-- **`session show`**: Display detailed session information
-  - Lookup by name or UUID
-  - Shows full session metadata
-
-- **`session delete`**: Remove session metadata
-  - Confirmation prompt (skippable with --force)
-  - Preserves original JSONL data files
-
-- **`config show`**: Display current configuration
-  - YAML or JSON output format
-  - Shows configuration source
-
-- **`config path`**: Show configuration file paths
-  - Lists search paths in order of precedence
-  - Indicates which paths have config files
-
-- **`config reset`**: Reset configuration to defaults
-  - Confirmation prompt (skippable with --force)
-  - Custom output path support
+- `stats` — Aggregated statistics with grouping (model, session, date, hour) and filtering
+- `list` — List all discovered sessions
+- `watch` — Live monitoring with delta tracking, burn rate, billing block status
+- `session name/list/show/delete` — Session metadata management
+- `config show/path/reset` — Configuration management
 
 #### Infrastructure
-
-- **Configuration System**: Flexible multi-source configuration
-  - YAML configuration files
-  - Environment variable overrides
-  - Command-line flag overrides
-  - Hierarchical search paths (., ~/.config, /etc)
-  - Validation with helpful error messages
-
-- **Logging System**: Structured logging with slog
-  - Multiple log levels (debug, info, warn, error)
-  - Configurable output (stdout, stderr, file)
-  - Context-aware logging with session IDs
-  - JSON and text formats
-
-- **CI/CD Pipeline**: Automated testing and building
-  - GitHub Actions workflow
-  - Test execution with race detector
-  - golangci-lint validation
-  - Multi-platform builds (Linux, macOS, Windows)
-  - Automated releases with goreleaser
-
-- **Code Quality**: Comprehensive quality standards
-  - golangci-lint configuration
-  - 15+ enabled linters
-  - Test file exclusions
-  - Security checks (gosec)
-  - Performance validation
+- YAML configuration with env var and CLI flag overrides
+- Structured logging with slog (debug, info, warn, error)
+- GitHub Actions CI/CD with goreleaser
+- golangci-lint with 15+ linters
 
 #### Testing
-
-- **Unit Tests**: Comprehensive test coverage
-  - 78%+ coverage for monitor package
-  - 87% coverage for aggregator package
-  - 86% coverage for config package
-  - Race detector enabled
-  - Table-driven tests
-  - Mock implementations
-
-- **Test Packages**:
-  - `pkg/aggregator`: Token aggregation and burn rate tests
-  - `pkg/config`: Configuration loading and validation tests
-  - `pkg/discovery`: Session file discovery tests
-  - `pkg/display`: Output formatting tests
-  - `pkg/logger`: Logging tests
-  - `pkg/monitor`: Live monitoring tests
-  - `pkg/parser`: JSONL parsing tests
-  - `pkg/reader`: Incremental reading tests
-  - `pkg/session`: Session manager tests
-  - `pkg/watcher`: File watching tests
-
-#### Documentation
-
-- **README.md**: Project overview and quick start
-  - Installation instructions
-  - Usage examples
-  - Feature highlights
-  - Configuration guide
-
-- **CONTRIBUTING.md**: Development guide
-  - Setup instructions
-  - Code style guide
-  - Testing requirements
-  - PR process
-  - Release process
-
-- **ARCHITECTURE.md**: Technical architecture
-  - System design
-  - Component overview
-  - Data flows
-  - Technology choices
-
-### Technical Details
-
-#### Performance
-- Incremental file reading with position tracking
-- Efficient file watching with 100ms debouncing
-- BoltDB for fast session metadata lookups
-- Streaming JSONL parser for large files
-
-#### Security
-- Secure file permissions (0750 for directories, 0600 for files)
-- Read-only access to Claude data files
-- No external network connections
-- Local-only data storage
-
-#### Compatibility
-- Go 1.22.6 or later
-- macOS, Linux, Windows support
-- amd64 and arm64 architectures
-- Claude Code usage.jsonl format
+- 78%+ coverage for monitor, 87% for aggregator, 86% for config
+- Race detector enabled, table-driven tests, mock implementations
 
 ### Known Limitations
-
-- Session export limited to JSON output (CSV planned)
 - No interactive session selection from list
-- No keyboard shortcuts in live monitoring
-- No TUI dashboard mode
 - Cost calculation not yet implemented
 - Log rotation not implemented
 
 ### Dependencies
-
-- `github.com/fsnotify/fsnotify` v1.7.0 - File system watching
-- `go.etcd.io/bbolt` v1.3.10 - Embedded database
-- `gopkg.in/yaml.v3` v3.0.1 - YAML configuration
-- `github.com/stretchr/testify` v1.8.1 - Testing utilities
-
----
-
-## Release Notes Format
-
-### Types of Changes
-
-- `Added` - New features
-- `Changed` - Changes in existing functionality
-- `Deprecated` - Soon-to-be removed features
-- `Removed` - Removed features
-- `Fixed` - Bug fixes
-- `Security` - Security improvements
+- `github.com/fsnotify/fsnotify` v1.7.0
+- `go.etcd.io/bbolt` v1.3.10
+- `gopkg.in/yaml.v3` v3.0.1
+- `github.com/stretchr/testify` v1.8.1
+- `github.com/charmbracelet/bubbletea` v1.3.10
+- `github.com/charmbracelet/lipgloss` v1.1.0
 
 ---
 
-[Unreleased]: https://github.com/0xmhha/token-monitor/compare/v0.1.0...HEAD
+[0.1.1]: https://github.com/0xmhha/token-monitor/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/0xmhha/token-monitor/releases/tag/v0.1.0
