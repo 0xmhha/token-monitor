@@ -116,7 +116,7 @@ token-monitor/
 │   └── watcher/               # File system watching
 ├── docs/                       # Documentation
 │   ├── ARCHITECTURE.md        # Technical architecture
-│   └── todolist.md            # Development roadmap
+│   └── roadmap.md             # Development roadmap
 ├── .github/
 │   └── workflows/             # CI/CD pipelines
 ├── .golangci.yml              # Linter configuration
@@ -391,7 +391,7 @@ func TestEndToEndMonitoring(t *testing.T) {
    golangci-lint run ./...
    go test -race ./...
    ```
-3. **Update documentation**: Update README.md, USAGE.md, or other docs if needed
+3. **Update documentation**: Update README.md or other docs if needed
 4. **Update CHANGELOG.md**: Add your changes to the Unreleased section
 
 ### PR Template

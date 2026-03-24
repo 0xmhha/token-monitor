@@ -158,13 +158,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Feature highlights
   - Configuration guide
 
-- **USAGE.md**: Comprehensive usage guide
-  - Complete command reference
-  - All flags and options documented
-  - Common workflows
-  - Troubleshooting section
-  - FAQ
-
 - **CONTRIBUTING.md**: Development guide
   - Setup instructions
   - Code style guide

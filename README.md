@@ -312,6 +312,15 @@ go test -race ./...
 go test -cover ./...
 ```
 
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| No sessions found | Verify Claude Code has been used: `ls ~/.claude/projects` |
+| Watch not updating | Ensure Claude Code is actively running; try `--refresh 5s` |
+| BoltDB timeout | Another process (e.g., MCP serve) holds the lock — watch/stats auto-fallback to in-memory mode |
+| Permission denied | Check file ownership: `ls -la ~/.claude/projects/` |
+
 ## Documentation
 
 | Document | Description |
@@ -320,7 +329,6 @@ go test -cover ./...
 | [Integration Guide](docs/INTEGRATION.md) | Claude Code hooks, MCP server, status line setup |
 | [Testing Guide](docs/TESTING.md) | Test strategy, coverage targets, CI/CD |
 | [Roadmap](docs/roadmap.md) | Planned features and version milestones |
-| [Usage Guide](USAGE.md) | Complete command reference and workflows |
 | [Contributing](CONTRIBUTING.md) | Development setup and PR process |
 | [Changelog](CHANGELOG.md) | Version history and release notes |
 
