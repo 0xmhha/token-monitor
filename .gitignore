@@ -68,3 +68,6 @@ coverage.txt
 coverage.html
 
 .claude/settings.local.json
+
+# MCP configuration (contains local paths)
+.mcp.json
