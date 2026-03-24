@@ -3,64 +3,51 @@
 [![GitHub release](https://img.shields.io/github/v/release/0xmhha/token-monitor)](https://github.com/0xmhha/token-monitor/releases/latest)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/0xmhha/token-monitor)](https://github.com/0xmhha/token-monitor)
 [![License](https://img.shields.io/github/license/0xmhha/token-monitor)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/0xmhha/token-monitor)](https://goreportcard.com/report/github.com/0xmhha/token-monitor)
 
-Real-time token usage monitoring CLI for Claude Code sessions.
+Real-time token usage monitoring for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions.
 
-## Overview
+## Why Token Monitor?
 
-**Token Monitor** tracks Claude Code's token consumption in real-time, providing session-based monitoring, burn rate analysis, and billing block tracking.
+Claude Code consumes tokens with every interaction, but there's no built-in way to track usage in real-time. Token Monitor fills this gap:
 
-### Key Features
+- **Visibility** — See exactly how many tokens each session uses, broken down by input, output, and cache tokens
+- **Cost Awareness** — Track burn rate (tokens/min) and billing block remaining time to avoid surprises
+- **Integration** — Works as a Claude Code extension via hooks, MCP server, and status line output
+- **Privacy** — Reads only token counts from local JSONL logs. No conversation content is accessed or stored.
 
-- **Real-time Monitoring**: Live updates as Claude Code generates tokens
-- **Session Management**: Track sessions by user-friendly names instead of UUIDs
-- **Token Breakdown**: Separate tracking for input, output, cache creation, and cache read tokens
-- **Billing Blocks**: Automatic 5-hour UTC billing window detection
-- **Burn Rate Analysis**: Tokens per minute with hourly projections
-- **Multiple Output Formats**: Table, JSON, and simple text output
-- **Delta Tracking**: View cumulative and real-time token changes
-- **Global Flags**: Control logging, output format, and colors globally
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Interactive TUI** | Full-screen dashboard with live updates (default command) |
+| **Live Monitoring** | Real-time token tracking with cumulative and per-update deltas |
+| **Session Management** | Name, filter, export, and compare sessions |
+| **Burn Rate Analysis** | Tokens/minute with hourly projections over sliding 5-min window |
+| **Billing Block Tracking** | 5-hour UTC billing window detection with time remaining |
+| **Claude Code Integration** | PostToolUse hooks, MCP server, compact status line output |
+| **Fast Query** | Single-metric lookup in <100ms for hook/script use |
+| **MCP Server** | JSON-RPC 2.0 server exposing 6 tools for Claude Code |
+| **Multiple Formats** | Table, JSON, simple text, compact, and hook output |
 
 ## Installation
 
-### Download Pre-built Binaries (Recommended)
+### Pre-built Binaries
 
-Download the latest release for your platform from the [releases page](https://github.com/0xmhha/token-monitor/releases/latest):
+Download from the [releases page](https://github.com/0xmhha/token-monitor/releases/latest):
 
-**macOS (Apple Silicon)**
 ```bash
-curl -L https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_darwin_arm64.tar.gz | tar xz
+# macOS (Apple Silicon)
+curl -L https://github.com/0xmhha/token-monitor/releases/latest/download/token-monitor_darwin_arm64.tar.gz | tar xz
 sudo mv token-monitor /usr/local/bin/
-```
 
-**macOS (Intel)**
-```bash
-curl -L https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_darwin_amd64.tar.gz | tar xz
+# macOS (Intel)
+curl -L https://github.com/0xmhha/token-monitor/releases/latest/download/token-monitor_darwin_amd64.tar.gz | tar xz
 sudo mv token-monitor /usr/local/bin/
-```
 
-**Linux (amd64)**
-```bash
-curl -L https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_linux_amd64.tar.gz | tar xz
+# Linux (amd64)
+curl -L https://github.com/0xmhha/token-monitor/releases/latest/download/token-monitor_linux_amd64.tar.gz | tar xz
 sudo mv token-monitor /usr/local/bin/
-```
-
-**Linux (arm64)**
-```bash
-curl -L https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_linux_arm64.tar.gz | tar xz
-sudo mv token-monitor /usr/local/bin/
-```
-
-**Windows (amd64)**
-```powershell
-# Download from: https://github.com/0xmhha/token-monitor/releases/download/v0.1.0/token-monitor_0.1.0_windows_amd64.tar.gz
-# Extract and add to PATH
-```
-
-### Using Go Install
-
-```bash
-go install github.com/0xmhha/token-monitor/cmd/token-monitor@v0.1.0
 ```
 
 ### From Source
@@ -71,136 +58,194 @@ cd token-monitor
 go build -o token-monitor ./cmd/token-monitor
 ```
 
-### Verify Installation
+### Verify
 
 ```bash
 token-monitor --version
-# Output: token-monitor v0.1.0
 ```
 
 ## Quick Start
 
-### 1. Start Live Monitoring
 ```bash
-# Watch all Claude Code sessions in real-time
-token-monitor watch
-```
+# Launch interactive TUI dashboard (default)
+token-monitor
 
-### 2. View Statistics
-```bash
-# See overall token usage
+# View token statistics
 token-monitor stats
 
-# Group by model to see usage per AI model
-token-monitor stats --group-by model
+# Live monitoring with table output
+token-monitor watch
 
-# Get JSON output for scripting
-token-monitor stats --json
-```
+# Fast single-value query (for scripts/hooks)
+token-monitor query --current --metric total
 
-### 3. Manage Sessions
-```bash
-# List all sessions
-token-monitor session list
-
-# Name a session for easy reference
-token-monitor session name abc123-def456-... my-project
-
-# View detailed session info
-token-monitor session show my-project
-```
-
-### 4. Global Flags
-
-Control behavior across all commands:
-
-```bash
-# Enable debug logging
-token-monitor --log-level debug stats
-
-# Force JSON output
-token-monitor --json stats
-
-# Disable colored output
-token-monitor --no-color watch
+# Compact status line
+token-monitor status --current
 ```
 
 ## Commands
 
-### `stats` - Display Statistics
+### Core Commands
+
+| Command | Description |
+|---------|-------------|
+| `tui` | Interactive TUI dashboard (default when no command given) |
+| `stats` | Display token usage statistics with grouping and filtering |
+| `watch` | Live monitoring with table/simple output |
+| `list` | List all discovered session files |
+| `session` | Session management (name, list, show, delete, export) |
+| `config` | Configuration management (show, set, validate, reset) |
+
+### Integration Commands
+
+| Command | Description |
+|---------|-------------|
+| `query` | Fast single-metric lookup (<100ms, no BoltDB) |
+| `status` | Compact formatted output for status line display |
+| `serve` | MCP JSON-RPC 2.0 server over stdio |
+
+### Query Command
+
+Designed for hooks and scripts. Bypasses BoltDB for fast execution.
 
 ```bash
-# Overall statistics
-token-monitor stats
+# Single metric
+token-monitor query --current --metric total        # 145823
+token-monitor query --current --metric burn-rate    # 2145.3
+token-monitor query --current --metric block-remaining  # 3h42m
 
-# Filter by session
-token-monitor stats --session <uuid>
+# All metrics as JSON
+token-monitor query --current --json
 
-# Group by model
-token-monitor stats --group model
-
-# Top 10 sessions by usage
-token-monitor stats --top 10
-
-# JSON output
-token-monitor stats --format json
+# Hook-compatible format
+token-monitor query --current --format hook
 ```
 
-### `watch` - Live Monitoring
+**Supported metrics**: `total`, `input`, `output`, `count`, `burn-rate`, `burn-rate-hour`, `block-remaining`, `block-tokens`
+
+### Status Command
+
+Compact output for Claude Code status line.
 
 ```bash
-# Watch all sessions
-token-monitor watch
-
-# Watch specific session
-token-monitor watch --session <uuid>
-
-# Custom refresh rate
-token-monitor watch --refresh 2s
-
-# Simple text format
-token-monitor watch --format simple
+token-monitor status --current              # default: fire 12.5K tokens | 2.1K/min | Block: 3h42m
+token-monitor status --current --compact    # 12.5K/2.1K^  (~13 chars)
+token-monitor status --current --full       # Total: 12,534 | Rate: 2,145/min | In: 8,234 Out: 4,300 | Block: 3h42m left
+token-monitor status --current --no-emoji   # 12.5K tokens | 2.1K/min | Block: 3h42m
+token-monitor status --current --watch      # continuous output
 ```
 
-The watch command displays:
-- Token usage with cumulative and real-time deltas
-- Statistics (average, min, max, percentiles)
-- Burn rate (tokens/minute and projected hourly)
-- Current billing block with time remaining
+### MCP Server
 
-### `session` - Session Management
+Exposes token data as tools for Claude Code via JSON-RPC 2.0 over stdio.
 
 ```bash
-# List all sessions
-token-monitor session list
-
-# Sort by name, date, or uuid
-token-monitor session list --sort name
-
-# Name a session
-token-monitor session name <uuid> my-project
-
-# Show session details
-token-monitor session show my-project
-
-# Delete session metadata (keeps data files)
-token-monitor session delete my-project
+token-monitor serve --stdio
 ```
 
-### `list` - List Discovered Sessions
+**Available tools**: `get_token_usage`, `get_burn_rate`, `get_billing_block`, `list_sessions`, `get_session_detail`, `compare_sessions`
 
-```bash
-token-monitor list
+## Claude Code Integration
+
+Choose one (or both) depending on your needs:
+
+| Method | Best For | How It Works |
+|--------|----------|-------------|
+| **Hooks** | Passive monitoring — see token usage after every action | Runs `token-monitor` on each tool call, displays result |
+| **MCP Server** | On-demand queries — ask Claude about token usage | Claude calls tools like `get_token_usage` directly |
+
+### Option A: Hooks (Passive Monitoring)
+
+Add to `~/.claude/settings.json`. Token usage appears automatically after every tool call.
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "token-monitor status --current --compact 2>/dev/null || true"
+      }]
+    }],
+    "Stop": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "token-monitor query --current --json 2>/dev/null || true"
+      }]
+    }]
+  }
+}
 ```
+
+### Option B: MCP Server (On-Demand Queries)
+
+Add to `~/.claude.json` (global) or `.mcp.json` (project-level). Claude can then answer questions like "How many tokens have I used?" directly.
+
+```json
+{
+  "mcpServers": {
+    "token-monitor": {
+      "command": "token-monitor",
+      "args": ["serve", "--stdio"]
+    }
+  }
+}
+```
+
+## How It Works
+
+```
+Claude Code JSONL logs
+  ~/.claude/projects/{project}/{session}.jsonl
+       |
+       v
+  +-----------+     +-----------+     +------------+
+  | Discovery | --> |  Reader   | --> | Aggregator |
+  | (scan)    |     | (parse)   |     | (stats)    |
+  +-----------+     +-----------+     +------------+
+       |                                     |
+       v                                     v
+  +-----------+                       +------------+
+  |  Watcher  |                       |  Display   |
+  | (fsnotify)|                       | (format)   |
+  +-----------+                       +------------+
+```
+
+1. **Discovery** scans Claude config directories for session JSONL files
+2. **Reader** incrementally parses new log entries (position tracking via BoltDB or memory)
+3. **Aggregator** computes statistics, burn rates, and billing blocks
+4. **Watcher** detects file changes via fsnotify for live updates
+5. **Display** renders output in the requested format
+
+### Data Privacy
+
+- **Read-only** — never modifies Claude Code data files
+- **No content access** — only reads token count metadata, not conversation content
+- **Local only** — all data stays on your machine
+
+## Billing Blocks
+
+Claude Code uses 5-hour billing windows aligned to UTC:
+
+| Block | UTC Time |
+|-------|----------|
+| 1 | 00:00 - 05:00 |
+| 2 | 05:00 - 10:00 |
+| 3 | 10:00 - 15:00 |
+| 4 | 15:00 - 20:00 |
+| 5 | 20:00 - 00:00 |
+
+Token Monitor tracks usage within these blocks and shows remaining time.
 
 ## Configuration
 
-Token Monitor searches for configuration in:
+Configuration file locations (in order of precedence):
+
 1. `./token-monitor.yaml`
 2. `~/.config/token-monitor/config.yaml`
 3. `/etc/token-monitor/config.yaml`
-
-### Example Configuration
 
 ```yaml
 claude_config_dirs:
@@ -214,137 +259,74 @@ logging:
   level: info
   format: text
   output: stderr
+
+integration:
+  auto_detect: true
+  status:
+    format: default    # compact | default | full
+    emoji: true
 ```
 
 ### Environment Variables
 
-- `CLAUDE_CONFIG_DIR`: Override Claude config directories (comma-separated)
+| Variable | Description |
+|----------|-------------|
+| `CLAUDE_CONFIG_DIR` | Override Claude config directories (comma-separated) |
+| `CLAUDE_SESSION_ID` | Override session auto-detection with specific ID |
+| `CLAUDE_PROJECT_DIR` | Limit auto-detection to a specific project directory |
 
-## Output Example
-
-```
-📊 Live Token Monitor - 2024-01-15 14:23:45
-
-┌─────────────────┬──────────────┬──────────────┬────────────┐
-│ Metric          │ Total        │ Session +    │ Now +      │
-├─────────────────┼──────────────┼──────────────┼────────────┤
-│ Requests        │          142 │         +142 │        +12 │
-│ Input Tokens    │       125432 │      +125432 │      +8234 │
-│ Output Tokens   │        45123 │       +45123 │      +3421 │
-│ Total Tokens    │       170555 │      +170555 │     +11655 │
-└─────────────────┴──────────────┴──────────────┴────────────┘
-
-🔥 Burn Rate (5-minute window)
-┌─────────────────┬──────────────┐
-│ Metric          │ Value        │
-├─────────────────┼──────────────┤
-│ Tokens/min      │       1245.3 │
-│ Tokens/hour     │      74718.0 │
-│ Entries         │           12 │
-└─────────────────┴──────────────┘
-
-📊 Current Billing Block (10:00 - 15:00 UTC)
-┌─────────────────┬──────────────┐
-│ Metric          │ Value        │
-├─────────────────┼──────────────┤
-│ Total Tokens    │        89234 │
-│ Entries         │           87 │
-│ Time Left       │        0h37m │
-└─────────────────┴──────────────┘
-```
-
-## Billing Blocks
-
-Claude Code uses 5-hour billing windows aligned to UTC:
-- 00:00 - 05:00 UTC
-- 05:00 - 10:00 UTC
-- 10:00 - 15:00 UTC
-- 15:00 - 20:00 UTC
-- 20:00 - 00:00 UTC
-
-Token Monitor tracks usage within these blocks and shows time remaining.
-
-## How It Works
-
-1. **Data Source**: Reads `~/.config/claude/projects/{projectDir}/{sessionId}.jsonl`
-2. **File Watching**: Detects new entries using filesystem events (fsnotify)
-3. **Incremental Reading**: Only processes new log entries
-4. **Aggregation**: Computes statistics, burn rates, and billing blocks
-5. **Display**: Renders live dashboard with real-time updates
-
-### Data Privacy
-
-- **No conversation content stored** - only token counts and metadata
-- **Read-only access** - never modifies Claude Code data
-- **Local storage only** - all data stays on your machine
-
-## Architecture
+## Project Structure
 
 ```
 token-monitor/
-├── cmd/token-monitor/    # CLI entry point and commands
+├── cmd/token-monitor/    # CLI commands (main, query, status, serve, etc.)
 ├── pkg/
-│   ├── aggregator/       # Token statistics and burn rate calculation
-│   ├── config/           # Configuration loading
-│   ├── discovery/        # Session file discovery
-│   ├── display/          # Output formatting
+│   ├── aggregator/       # Statistics, burn rate, billing block calculation
+│   ├── analysis/         # Cost analysis
+│   ├── config/           # YAML configuration with validation
+│   ├── discovery/        # Session file discovery + auto-detection
+│   ├── display/          # Output formatting (table, JSON, compact K/M)
 │   ├── logger/           # Structured logging
+│   ├── mcp/              # MCP JSON-RPC 2.0 server and tool handlers
 │   ├── monitor/          # Live monitoring engine
-│   ├── parser/           # JSONL log parsing
-│   ├── reader/           # Incremental file reading
-│   ├── session/          # Session metadata (BoltDB)
-│   └── watcher/          # File system watching
-└── docs/                 # Documentation
+│   ├── parser/           # JSONL log parsing with validation
+│   ├── reader/           # Incremental file reading with position tracking
+│   ├── session/          # Session metadata storage (BoltDB)
+│   ├── tui/              # Interactive Bubbletea dashboard
+│   └── watcher/          # Filesystem watching (fsnotify)
+└── docs/                 # Architecture, integration guide, roadmap
 ```
 
 ## Development
 
 ### Prerequisites
 
-- Go 1.22 or later
+- Go 1.24+
 
-### Building
+### Build & Test
 
 ```bash
 go build -o token-monitor ./cmd/token-monitor
-```
-
-### Testing
-
-```bash
-# Run all tests
 go test ./...
-
-# Run with race detector
 go test -race ./...
-
-# Run with coverage
 go test -cover ./...
 ```
 
 ## Documentation
 
-- [Usage Guide](USAGE.md) - Complete command reference, workflows, and troubleshooting
-- [Contributing](CONTRIBUTING.md) - Development guide and contribution process
-- [Changelog](CHANGELOG.md) - Version history and release notes
-- [Architecture](docs/ARCHITECTURE.md) - System design and components
-- [TODO List](docs/todolist.md) - Feature roadmap and development tasks
-
-## Technology Stack
-
-- **Language**: Go 1.22+
-- **File Watching**: fsnotify
-- **Database**: BoltDB (embedded)
-- **Testing**: Go testing + testify
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/ARCHITECTURE.md) | System design, component interactions, data flow |
+| [Integration Guide](docs/INTEGRATION.md) | Claude Code hooks, MCP server, status line setup |
+| [Testing Guide](docs/TESTING.md) | Test strategy, coverage targets, CI/CD |
+| [Roadmap](docs/roadmap.md) | Planned features and version milestones |
+| [Usage Guide](USAGE.md) | Complete command reference and workflows |
+| [Contributing](CONTRIBUTING.md) | Development setup and PR process |
+| [Changelog](CHANGELOG.md) | Version history and release notes |
 
 ## Contributing
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
-
-- Development setup and prerequisites
-- Code style and quality guidelines
-- Testing requirements and best practices
-- Pull request process and review workflow
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and PR process.
 
 ## License
 
@@ -352,6 +334,6 @@ See [LICENSE](LICENSE) file.
 
 ## Acknowledgments
 
-- [ccusage](https://github.com/tianhuil/ccusage) - Inspiration for token tracking
-- Claude Code CLI - The tool being monitored
-- Anthropic - For Claude and Claude Code
+- [ccusage](https://github.com/tianhuil/ccusage) — Inspiration for token tracking
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — The tool being monitored
+- [Anthropic](https://www.anthropic.com/) — For Claude and Claude Code
