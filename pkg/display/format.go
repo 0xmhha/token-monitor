@@ -23,9 +23,8 @@ func FormatCompact(n int) string {
 	}
 }
 
-// FormatDuration formats a duration as a human-readable string.
-//
-// Examples: "3h42m", "45m", "12s", "0s"
+// FormatDuration formats a duration as a human-readable string
+// (e.g. "3h42m", "45m", "12s", "0s").
 func FormatDuration(d time.Duration) string {
 	if d == 0 {
 		return "0s"
@@ -46,16 +45,14 @@ func FormatDuration(d time.Duration) string {
 	return fmt.Sprintf("%ds", seconds)
 }
 
-// FormatRate formats a float rate value with 1 decimal place.
-//
-// Examples: "2145.3", "0.0"
+// FormatRate formats a float rate value with 1 decimal place
+// (e.g. "2145.3", "0.0").
 func FormatRate(f float64) string {
 	return fmt.Sprintf("%.1f", f)
 }
 
-// FormatTokenCount formats a token count with comma separators.
-//
-// Examples: "12,534", "1,234,567"
+// FormatTokenCount formats a token count with comma separators
+// (e.g. "12,534", "1,234,567").
 func FormatTokenCount(n int) string {
 	if n < 0 {
 		return "-" + formatPositiveWithCommas(-n)

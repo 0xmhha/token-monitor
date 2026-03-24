@@ -37,7 +37,7 @@ func (c *sessionCommand) runCompare(args []string) error {
 	}
 	defer func() {
 		if mgr != nil {
-			_ = mgr.Close()
+			mgr.Close() //nolint:errcheck,gosec // best-effort cleanup
 		}
 	}()
 
@@ -47,12 +47,12 @@ func (c *sessionCommand) runCompare(args []string) error {
 		return fmt.Errorf("failed to discover sessions: %w", err)
 	}
 
-	analysisA, err := c.loadAndAnalyze(cfg, log, mgr, discovered, opts.identifierA, "A")
+	analysisA, err := c.loadAndAnalyze(cfg, log, mgr, discovered, opts.identifierA)
 	if err != nil {
 		return fmt.Errorf("session A: %w", err)
 	}
 
-	analysisB, err := c.loadAndAnalyze(cfg, log, mgr, discovered, opts.identifierB, "B")
+	analysisB, err := c.loadAndAnalyze(cfg, log, mgr, discovered, opts.identifierB)
 	if err != nil {
 		return fmt.Errorf("session B: %w", err)
 	}
@@ -92,7 +92,7 @@ func (c *sessionCommand) loadAndAnalyze(
 	log logger.Logger,
 	mgr session.Manager,
 	discovered []discovery.SessionFile,
-	identifier, label string,
+	identifier string,
 ) (analysis.SessionAnalysis, error) {
 	metadata := c.findSessionMetadata(mgr, identifier)
 	sessionFile := c.findSessionFile(discovered, identifier, metadata)
@@ -378,7 +378,7 @@ func fmtNum(n int) string {
 		return s
 	}
 
-	var result []byte
+	result := make([]byte, 0, len(s)+len(s)/3)
 	for i, ch := range s {
 		if i > 0 && (len(s)-i)%3 == 0 {
 			result = append(result, ',')

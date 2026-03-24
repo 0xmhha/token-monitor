@@ -71,9 +71,7 @@ func (c *statusCommand) runWatch() error {
 	defer ticker.Stop()
 
 	// Print first line immediately.
-	if err := c.printWatchLine(isTerminal, true); err != nil {
-		return err
-	}
+	c.printWatchLine(isTerminal, true)
 
 	for {
 		select {
@@ -83,19 +81,17 @@ func (c *statusCommand) runWatch() error {
 			}
 			return nil
 		case <-ticker.C:
-			if err := c.printWatchLine(isTerminal, false); err != nil {
-				return err
-			}
+			c.printWatchLine(isTerminal, false)
 		}
 	}
 }
 
 // printWatchLine prints one status line, overwriting previous if terminal.
-func (c *statusCommand) printWatchLine(isTerminal bool, first bool) error {
+func (c *statusCommand) printWatchLine(isTerminal bool, first bool) {
 	data, err := c.collect()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "status: %v\n", err)
-		return nil
+		return
 	}
 	line := c.format(data)
 	if isTerminal && !first {
@@ -103,7 +99,6 @@ func (c *statusCommand) printWatchLine(isTerminal bool, first bool) error {
 	} else {
 		fmt.Println(line)
 	}
-	return nil
 }
 
 // collect resolves the target session(s) and aggregates token data.
@@ -212,14 +207,14 @@ func (c *statusCommand) format(d statusData) string {
 	}
 }
 
-// formatCompact renders ~13 chars: "12.5K/2.1K↑"
+// formatCompact renders a minimal format of approximately 13 chars.
 func (c *statusCommand) formatCompact(d statusData) string {
 	total := display.FormatCompact(d.totalTokens)
 	rate := display.FormatCompact(int(d.ratePerMin))
 	return fmt.Sprintf("%s/%s↑", total, rate)
 }
 
-// formatDefault renders ~45 chars: "🔥 12.5K tokens | 2.1K/min | Block: 3h42m"
+// formatDefault renders the standard format of approximately 45 chars.
 func (c *statusCommand) formatDefault(d statusData) string {
 	total := display.FormatCompact(d.totalTokens)
 	rate := display.FormatCompact(int(d.ratePerMin))
@@ -231,7 +226,7 @@ func (c *statusCommand) formatDefault(d statusData) string {
 	return fmt.Sprintf("🔥 %s tokens | %s/min | Block: %s", total, rate, remain)
 }
 
-// formatFull renders ~75 chars: "Total: 12,534 | Rate: 2,145/min | In: 8,234 Out: 4,300 | Block: 3h42m left"
+// formatFull renders the verbose format of approximately 75 chars.
 func (c *statusCommand) formatFull(d statusData) string {
 	total := display.FormatTokenCount(d.totalTokens)
 	rate := display.FormatTokenCount(int(d.ratePerMin))

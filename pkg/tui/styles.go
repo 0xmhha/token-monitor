@@ -2,7 +2,7 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Color palette
+// Color palette.
 var (
 	colorPrimary   = lipgloss.Color("#7C3AED") // purple
 	colorSecondary = lipgloss.Color("#06B6D4") // cyan
@@ -12,12 +12,11 @@ var (
 	colorMuted     = lipgloss.Color("#6B7280") // gray
 	colorText      = lipgloss.Color("#F9FAFB") // white
 	colorSubtext   = lipgloss.Color("#9CA3AF") // light gray
-	colorBg        = lipgloss.Color("#111827") // dark
 	colorBgAlt     = lipgloss.Color("#1F2937") // dark alt
 	colorBorder    = lipgloss.Color("#374151") // border gray
 )
 
-// Tab styles
+// Tab styles.
 var (
 	activeTabStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -34,7 +33,7 @@ var (
 			Foreground(colorBorder)
 )
 
-// Panel styles
+// Panel styles.
 var (
 	panelStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -52,16 +51,13 @@ var (
 				Padding(1, 2)
 )
 
-// Text styles
+// Text styles.
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorText)
 
 	subtitleStyle = lipgloss.NewStyle().
-			Foreground(colorSubtext)
-
-	labelStyle = lipgloss.NewStyle().
 			Foreground(colorSubtext)
 
 	valueStyle = lipgloss.NewStyle().
@@ -84,7 +80,7 @@ var (
 			Foreground(colorSecondary)
 )
 
-// Status bar styles
+// Status bar styles.
 var (
 	statusKeyStyle = lipgloss.NewStyle().
 			Foreground(colorText).
@@ -98,7 +94,7 @@ var (
 			Padding(0, 1)
 )
 
-// Table styles
+// Table styles.
 var (
 	tableHeaderStyle = lipgloss.NewStyle().
 				Bold(true).
@@ -110,7 +106,7 @@ var (
 				Bold(true)
 )
 
-// Help styles
+// Help styles.
 var (
 	helpOverlayStyle = lipgloss.NewStyle().
 				Border(lipgloss.DoubleBorder()).

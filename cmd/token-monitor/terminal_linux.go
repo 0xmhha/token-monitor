@@ -13,5 +13,5 @@ func enableOutputProcessing(fd int) {
 		return
 	}
 	t.Oflag |= unix.OPOST
-	_ = unix.IoctlSetTermios(fd, unix.TCSETS, t)
+	unix.IoctlSetTermios(fd, unix.TCSETS, t) //nolint:errcheck // best-effort terminal restoration
 }

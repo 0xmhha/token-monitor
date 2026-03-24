@@ -365,8 +365,7 @@ func formatDelta(n int) string {
 }
 
 // shortenProjectPath strips the common Claude config prefix to show only
-// the meaningful project identifier.
-// e.g. "/Users/foo/.config/claude/projects/-Users-foo-Work-myapp" → "-Users-foo-Work-myapp"
+// the meaningful project identifier (e.g. "-Users-foo-Work-myapp").
 func shortenProjectPath(path string) string {
 	markers := []string{"/projects/", "/.claude/projects/", "/claude/projects/"}
 	for _, marker := range markers {

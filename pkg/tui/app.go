@@ -150,7 +150,7 @@ func initModel(opts Options) (Model, error) {
 
 	positionStore, err := reader.NewBoltPositionStore(sessionMgr.DB())
 	if err != nil {
-		sessionMgr.Close()
+		sessionMgr.Close() //nolint:errcheck,gosec // best-effort cleanup on init failure
 		return Model{}, fmt.Errorf("failed to initialize position store: %w", err)
 	}
 
@@ -159,7 +159,7 @@ func initModel(opts Options) (Model, error) {
 		Parser:        parser.New(),
 	}, log)
 	if err != nil {
-		sessionMgr.Close()
+		sessionMgr.Close() //nolint:errcheck,gosec // best-effort cleanup on init failure
 		return Model{}, fmt.Errorf("failed to initialize reader: %w", err)
 	}
 
@@ -167,8 +167,8 @@ func initModel(opts Options) (Model, error) {
 		DebounceInterval: 100 * time.Millisecond,
 	}, log)
 	if err != nil {
-		rdr.Close()
-		sessionMgr.Close()
+		rdr.Close()        //nolint:errcheck,gosec // best-effort cleanup on init failure
+		sessionMgr.Close() //nolint:errcheck,gosec // best-effort cleanup on init failure
 		return Model{}, fmt.Errorf("failed to initialize watcher: %w", err)
 	}
 
@@ -190,9 +190,9 @@ func initModel(opts Options) (Model, error) {
 		ClearScreen:     false,
 	}, wtch, rdr, disc, log)
 	if err != nil {
-		wtch.Close()
-		rdr.Close()
-		sessionMgr.Close()
+		wtch.Close()       //nolint:errcheck,gosec // best-effort cleanup on init failure
+		rdr.Close()        //nolint:errcheck,gosec // best-effort cleanup on init failure
+		sessionMgr.Close() //nolint:errcheck,gosec // best-effort cleanup on init failure
 		return Model{}, fmt.Errorf("failed to create monitor: %w", err)
 	}
 
@@ -313,7 +313,7 @@ func (m Model) View() string {
 // Key handling
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Help toggle takes priority
+	// Help toggle takes priority.
 	if m.showHelp {
 		m.showHelp = false
 		return m, nil
@@ -328,62 +328,74 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.showHelp = true
 		return m, nil
 
-	case key.Matches(msg, m.keys.Tab):
-		m.activeTab = Tab((int(m.activeTab) + 1) % len(tabNames))
-		return m, nil
-
-	case key.Matches(msg, m.keys.ShiftTab):
-		m.activeTab = Tab((int(m.activeTab) - 1 + len(tabNames)) % len(tabNames))
-		return m, nil
-
-	case key.Matches(msg, m.keys.Number1):
-		m.activeTab = TabDashboard
-		return m, nil
-
-	case key.Matches(msg, m.keys.Number2):
-		m.activeTab = TabSessions
-		return m, nil
-
-	case key.Matches(msg, m.keys.Number3):
-		m.activeTab = TabStats
+	case key.Matches(msg, m.keys.Tab),
+		key.Matches(msg, m.keys.ShiftTab),
+		key.Matches(msg, m.keys.Number1),
+		key.Matches(msg, m.keys.Number2),
+		key.Matches(msg, m.keys.Number3):
+		m.activeTab = m.resolveTab(msg)
 		return m, nil
 
 	case key.Matches(msg, m.keys.Refresh):
-		// In session detail mode, only refresh that session
-		if m.activeTab == TabDashboard && m.dashboard.hasDetail() {
-			det := m.dashboard.detail
-			return m, m.loadSessionDetail(det.sessionID, det.filePath, det.projectPath)
-		}
-		return m, tea.Batch(m.loadSessions(), m.loadStats())
+		return m, m.handleRefresh()
 
+	case key.Matches(msg, m.keys.Up),
+		key.Matches(msg, m.keys.Down),
+		key.Matches(msg, m.keys.Enter),
+		key.Matches(msg, m.keys.Escape):
+		return m.handleViewKey(msg)
+	}
+
+	return m, nil
+}
+
+// resolveTab returns the target tab for a navigation key.
+func (m Model) resolveTab(msg tea.KeyMsg) Tab {
+	switch {
+	case key.Matches(msg, m.keys.Tab):
+		return Tab((int(m.activeTab) + 1) % len(tabNames))
+	case key.Matches(msg, m.keys.ShiftTab):
+		return Tab((int(m.activeTab) - 1 + len(tabNames)) % len(tabNames))
+	case key.Matches(msg, m.keys.Number1):
+		return TabDashboard
+	case key.Matches(msg, m.keys.Number2):
+		return TabSessions
+	default:
+		return TabStats
+	}
+}
+
+// handleRefresh returns the appropriate refresh command.
+func (m Model) handleRefresh() tea.Cmd {
+	if m.activeTab == TabDashboard && m.dashboard.hasDetail() {
+		det := m.dashboard.detail
+		return m.loadSessionDetail(det.sessionID, det.filePath, det.projectPath)
+	}
+	return tea.Batch(m.loadSessions(), m.loadStats())
+}
+
+// handleViewKey dispatches Up/Down/Enter/Escape to view-specific logic.
+func (m Model) handleViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
 	case key.Matches(msg, m.keys.Up):
 		if m.activeTab == TabSessions {
 			m.sessions.moveUp()
 		}
-		return m, nil
-
 	case key.Matches(msg, m.keys.Down):
 		if m.activeTab == TabSessions {
 			m.sessions.moveDown()
 		}
-		return m, nil
-
 	case key.Matches(msg, m.keys.Enter):
 		if m.activeTab == TabSessions {
 			if sess := m.sessions.selected(); sess != nil {
 				return m, m.loadSessionDetail(sess.SessionID, sess.FilePath, sess.ProjectPath)
 			}
 		}
-		return m, nil
-
 	case key.Matches(msg, m.keys.Escape):
 		if m.activeTab == TabDashboard && m.dashboard.hasDetail() {
 			m.dashboard.clearDetail()
-			return m, nil
 		}
-		return m, nil
 	}
-
 	return m, nil
 }
 
@@ -557,15 +569,15 @@ func (m Model) tick() tea.Cmd {
 
 func (m *Model) cleanup() {
 	if m.mon != nil {
-		m.mon.Stop()
+		m.mon.Stop() //nolint:errcheck,gosec // best-effort cleanup on shutdown
 	}
 	if m.wtch != nil {
-		m.wtch.Close()
+		m.wtch.Close() //nolint:errcheck,gosec // best-effort cleanup on shutdown
 	}
 	if m.rdr != nil {
-		m.rdr.Close()
+		m.rdr.Close() //nolint:errcheck,gosec // best-effort cleanup on shutdown
 	}
 	if m.sessionMgr != nil {
-		m.sessionMgr.Close()
+		m.sessionMgr.Close() //nolint:errcheck,gosec // best-effort cleanup on shutdown
 	}
 }

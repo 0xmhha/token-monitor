@@ -105,7 +105,7 @@ func (v *statsView) topSessionsPanel() string {
 		tableHeaderStyle.Render("Avg"),
 	)
 
-	var rows []string
+	rows := make([]string, 0, len(v.topSessions)+1)
 	rows = append(rows, header)
 
 	for i, sess := range v.topSessions {

@@ -37,7 +37,7 @@ func renderHelp(width, height int) string {
 		},
 	}
 
-	var lines []string
+	lines := make([]string, 0, 16)
 	lines = append(lines, title)
 	lines = append(lines, "")
 
