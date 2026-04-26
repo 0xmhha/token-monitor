@@ -123,6 +123,12 @@ type Statistics struct {
 	// OutputTokens is the sum of all output tokens.
 	OutputTokens int
 
+	// CacheCreationTokens is the sum of all cache-creation tokens.
+	CacheCreationTokens int
+
+	// CacheReadTokens is the sum of all cache-read tokens.
+	CacheReadTokens int
+
 	// AvgTokens is the average tokens per entry.
 	AvgTokens float64
 

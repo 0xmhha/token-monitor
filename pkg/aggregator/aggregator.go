@@ -379,11 +379,16 @@ func getBillingBlockStart(t time.Time) time.Time {
 
 // updateStats updates statistics with a new entry.
 func (a *aggregator) updateStats(stats *Statistics, entry parser.UsageEntry, total, input, output int) {
+	cacheCreate := entry.Message.Usage.CacheCreationInputTokens
+	cacheRead := entry.Message.Usage.CacheReadInputTokens
+
 	// Update counts.
 	stats.Count++
 	stats.TotalTokens += total
 	stats.InputTokens += input
 	stats.OutputTokens += output
+	stats.CacheCreationTokens += cacheCreate
+	stats.CacheReadTokens += cacheRead
 
 	// Update average.
 	stats.AvgTokens = float64(stats.TotalTokens) / float64(stats.Count)
@@ -519,10 +524,12 @@ func splitKey(key string) []string {
 // mergeStats merges two Statistics structs.
 func (a *aggregator) mergeStats(s1, s2 Statistics) Statistics {
 	result := Statistics{
-		Count:        s1.Count + s2.Count,
-		TotalTokens:  s1.TotalTokens + s2.TotalTokens,
-		InputTokens:  s1.InputTokens + s2.InputTokens,
-		OutputTokens: s1.OutputTokens + s2.OutputTokens,
+		Count:               s1.Count + s2.Count,
+		TotalTokens:         s1.TotalTokens + s2.TotalTokens,
+		InputTokens:         s1.InputTokens + s2.InputTokens,
+		OutputTokens:        s1.OutputTokens + s2.OutputTokens,
+		CacheCreationTokens: s1.CacheCreationTokens + s2.CacheCreationTokens,
+		CacheReadTokens:     s1.CacheReadTokens + s2.CacheReadTokens,
 	}
 
 	result.AvgTokens = float64(result.TotalTokens) / float64(result.Count)
