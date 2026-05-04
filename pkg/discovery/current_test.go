@@ -216,9 +216,31 @@ func TestFindCurrentSession_EnvProjectDir_MultipleFiles(t *testing.T) {
 	assert.Equal(t, latestID, session.SessionID)
 }
 
-// TestFindCurrentSession_EnvProjectDir_Empty verifies that ErrNoCurrentSession
-// is returned when CLAUDE_PROJECT_DIR exists but contains no .jsonl files.
+// TestFindCurrentSession_EnvProjectDir_Empty verifies that when CLAUDE_PROJECT_DIR
+// exists but contains no .jsonl files, FindCurrentSession falls through to baseDirs
+// rather than failing. This handles the case where Claude Code sets CLAUDE_PROJECT_DIR
+// to the source code directory (not the session storage directory).
 func TestFindCurrentSession_EnvProjectDir_Empty(t *testing.T) {
+	baseDir := t.TempDir()
+	projectDir := t.TempDir() // separate empty dir simulating a source code directory
+
+	existingProject := makeProjectDir(t, baseDir, "project")
+	existingID := sessionIDs[0]
+	createSessionFile(t, existingProject, existingID)
+
+	setEnv(t, "CLAUDE_PROJECT_DIR", projectDir)
+
+	d := New([]string{baseDir}, &testLogger{})
+	session, err := d.FindCurrentSession()
+
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	assert.Equal(t, existingID, session.SessionID)
+}
+
+// TestFindCurrentSession_EnvProjectDir_EmptyNoFallback verifies that ErrNoCurrentSession
+// is returned when CLAUDE_PROJECT_DIR has no sessions AND baseDirs also have none.
+func TestFindCurrentSession_EnvProjectDir_EmptyNoFallback(t *testing.T) {
 	projectDir := t.TempDir()
 	setEnv(t, "CLAUDE_PROJECT_DIR", projectDir)
 

@@ -76,8 +76,8 @@ type Discoverer interface {
 	// FindCurrentSession returns the most recently active session.
 	//
 	// Detection priority:
-	//  1. CLAUDE_SESSION_ID env var → find matching session file
-	//  2. CLAUDE_PROJECT_DIR env var → most recent .jsonl in that dir
+	//  1. CLAUDE_SESSION_ID env var → find matching session file; fall through if not found
+	//  2. CLAUDE_PROJECT_DIR env var → most recent .jsonl in that dir; fall through if none found
 	//  3. Default dirs → most recently modified .jsonl
 	FindCurrentSession() (*SessionFile, error)
 }

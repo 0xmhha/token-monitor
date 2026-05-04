@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"errors"
 	"os"
 	"time"
 )
@@ -11,7 +12,7 @@ const cacheTTL = time.Second
 //
 // Detection priority:
 //  1. CLAUDE_SESSION_ID env var → scan all baseDirs for matching session ID
-//  2. CLAUDE_PROJECT_DIR env var → most recent .jsonl in that dir
+//  2. CLAUDE_PROJECT_DIR env var → most recent .jsonl in that dir; if none found, fall through
 //  3. Fallback → most recently modified .jsonl across all baseDirs
 func (d *discoverer) FindCurrentSession() (*SessionFile, error) {
 	if cached := d.getCached(); cached != nil {
@@ -58,7 +59,15 @@ func (d *discoverer) detectCurrentSession() (*SessionFile, error) {
 	}
 
 	if projectDir := os.Getenv("CLAUDE_PROJECT_DIR"); projectDir != "" {
-		return d.findMostRecentInDir(projectDir)
+		session, err := d.findMostRecentInDir(projectDir)
+		if err == nil {
+			return session, nil
+		}
+		if !errors.Is(err, ErrNoCurrentSession) {
+			return nil, err
+		}
+		d.logger.Debug("CLAUDE_PROJECT_DIR set but no sessions found, falling through",
+			"project_dir", projectDir)
 	}
 
 	return d.findMostRecentOverall()
