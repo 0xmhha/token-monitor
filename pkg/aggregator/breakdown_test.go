@@ -139,6 +139,7 @@ func TestMatchModel(t *testing.T) {
 		{"empty-glob-matches-empty-model", "", "", true},
 		{"malformed-glob-returns-false", "claude-sonnet-4-6", "[abc", false},
 		{"exact-match", "claude-haiku-3-5", "claude-haiku-3-5", true},
+		{"single-char-wildcard", "claude-sonnet-4-6", "claude-sonnet-?-?", true},
 	}
 
 	for _, tc := range cases {

@@ -34,15 +34,17 @@ func BreakdownByModel(entries []parser.UsageEntry) map[string]ModelBreakdown {
 		b.OutputTokens += e.Message.Usage.OutputTokens
 		b.CacheCreate += e.Message.Usage.CacheCreationInputTokens
 		b.CacheRead += e.Message.Usage.CacheReadInputTokens
-		b.TotalTokens = b.InputTokens + b.OutputTokens + b.CacheCreate + b.CacheRead
+		b.TotalTokens += e.Message.Usage.TotalTokens()
 		b.EntryCount++
 		out[m] = b
 	}
 	return out
 }
 
-// MatchModel reports whether model matches glob (case-insensitive).
-// Empty glob matches everything. Glob supports `*` wildcard via filepath.Match.
+// MatchModel reports whether model matches glob (case-insensitive on ASCII).
+// Empty glob matches everything. Supports `*` and `?` wildcards.
+// Character classes (`[...]`) are not recommended: case-folding both
+// sides changes their semantics (e.g. `[A-Z]` becomes `[a-z]`).
 func MatchModel(model, glob string) bool {
 	if glob == "" {
 		return true
@@ -69,6 +71,7 @@ func FilterByModelGlob(entries []parser.UsageEntry, glob string) []parser.UsageE
 }
 
 // FilterSince returns entries with Timestamp >= since.
+// A zero time.Time{} cutoff includes all entries (used for "all" window).
 func FilterSince(entries []parser.UsageEntry, since time.Time) []parser.UsageEntry {
 	out := make([]parser.UsageEntry, 0, len(entries))
 	for _, e := range entries {
