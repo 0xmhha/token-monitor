@@ -58,7 +58,13 @@ type sessionContext struct {
 	log           Logger
 }
 
-// RegisterTokenTools registers all 6 token monitoring tools into the registry.
+// RegisterTokenTools registers all token monitoring tools into the registry.
+//
+// Currently registers 9 tools, split into two groups:
+//   - Single-session: get_token_usage, get_burn_rate, get_billing_block,
+//     list_sessions, get_session_detail, compare_sessions
+//   - Cross-session breakdown (v0.2): get_session_breakdown,
+//     get_today_usage, get_usage_by_window
 func RegisterTokenTools(registry *ToolRegistry, disc discovery.Discoverer, readerFactory func() (reader.Reader, error), log Logger) {
 	ctx := &sessionContext{disc: disc, readerFactory: readerFactory, log: log}
 
@@ -68,6 +74,11 @@ func RegisterTokenTools(registry *ToolRegistry, disc discovery.Discoverer, reade
 	registry.Register(toolListSessions(), ctx.handleListSessions)
 	registry.Register(toolGetSessionDetail(), ctx.handleGetSessionDetail)
 	registry.Register(toolCompareSessions(), ctx.handleCompareSessions)
+
+	// v0.2 cross-session breakdown tools.
+	registry.Register(toolGetSessionBreakdown(), ctx.handleGetSessionBreakdown)
+	registry.Register(toolGetTodayUsage(), ctx.handleGetTodayUsage)
+	registry.Register(toolGetUsageByWindow(), ctx.handleGetUsageByWindow)
 }
 
 // --- Tool definitions ---

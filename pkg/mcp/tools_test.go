@@ -483,7 +483,7 @@ func TestTextResult_EncodesAsJSON(t *testing.T) {
 	assert.EqualValues(t, 42, decoded["count"])
 }
 
-func TestRegisterTokenTools_RegistersSixTools(t *testing.T) {
+func TestRegisterTokenTools_RegistersAllTools(t *testing.T) {
 	t.Parallel()
 
 	disc := &mockDiscoverer{}
@@ -491,16 +491,21 @@ func TestRegisterTokenTools_RegistersSixTools(t *testing.T) {
 	RegisterTokenTools(registry, disc, newTestReaderFactory(), &testLogger{})
 
 	tools := registry.List()
-	assert.Len(t, tools, 6, "RegisterTokenTools must register exactly 6 tools")
+	assert.Len(t, tools, 9, "RegisterTokenTools must register exactly 9 tools (6 v0.1 + 3 v0.2)")
 
 	names := make([]string, len(tools))
 	for i, tool := range tools {
 		names[i] = tool.Name
 	}
+	// v0.1 single-session tools.
 	assert.Contains(t, names, "get_token_usage")
 	assert.Contains(t, names, "get_burn_rate")
 	assert.Contains(t, names, "get_billing_block")
 	assert.Contains(t, names, "list_sessions")
 	assert.Contains(t, names, "get_session_detail")
 	assert.Contains(t, names, "compare_sessions")
+	// v0.2 cross-session breakdown tools.
+	assert.Contains(t, names, "get_session_breakdown")
+	assert.Contains(t, names, "get_today_usage")
+	assert.Contains(t, names, "get_usage_by_window")
 }
