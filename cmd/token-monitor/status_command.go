@@ -49,6 +49,18 @@ type statusData struct {
 
 // Execute runs the status command.
 func (c *statusCommand) Execute() error {
+	// Reject incompatible flag combinations up front so the caller gets a
+	// clear error instead of silently observing one flag dropped. The
+	// breakdown path aggregates across every session in the window, so
+	// pinning to a single session (--current / --session) or animating it
+	// in --watch mode are both nonsensical.
+	if c.breakdown && c.watch {
+		return fmt.Errorf("--watch and --breakdown are mutually exclusive")
+	}
+	if c.breakdown && (c.current || c.sessionID != "") {
+		return fmt.Errorf("--breakdown aggregates across all sessions; remove --current/--session")
+	}
+
 	// Reading stdin is only meaningful when Claude Code is invoking us
 	// with its statusline JSON envelope. The session_id it provides
 	// pins single-session output to the exact session the user is
@@ -361,8 +373,8 @@ func runStatusCommand(globalOpts globalOptions, args []string) error {
 	noEmoji := fs.Bool("no-emoji", false, "omit emoji from output")
 	watch := fs.Bool("watch", false, "continuous output mode")
 	interval := fs.Duration("interval", 5*time.Second, "watch refresh interval")
-	fromStdin := fs.Bool("from-stdin", false, "read Claude Code statusline JSON envelope from stdin")
-	breakdown := fs.Bool("breakdown", false, "emit cross-session breakdown line (day:total | model:total)")
+	fromStdin := fs.Bool("from-stdin", false, "read Claude Code statusline JSON envelope from stdin (session_id pins --current; ignored under --breakdown)")
+	breakdown := fs.Bool("breakdown", false, "cross-session compact line: 'day:total | model:total ...' (incompatible with --current/--session/--watch)")
 	window := fs.String("window", "today", "time window for --breakdown: today, all, Nd, or Nh")
 	modelGlob := fs.String("model-glob", "", "filter --breakdown by model glob, e.g. '*sonnet*'")
 

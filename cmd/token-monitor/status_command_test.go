@@ -1,8 +1,12 @@
 package main
 
 import (
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0xmhha/token-monitor/pkg/aggregator"
 )
@@ -144,4 +148,184 @@ func TestFormatBreakdown_TotalSumsAllModels(t *testing.T) {
 			t.Errorf("expected %q in output, got %q", abbr, got)
 		}
 	}
+}
+
+// TestExecute_BreakdownWithWatchRejected verifies that combining --breakdown
+// with --watch returns an explicit error rather than silently dropping one
+// of the flags. Previously printBreakdown returned before the watch check,
+// so --watch was a no-op alongside --breakdown.
+func TestExecute_BreakdownWithWatchRejected(t *testing.T) {
+	t.Parallel()
+
+	cmd := &statusCommand{breakdown: true, watch: true}
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when combining --breakdown with --watch, got nil")
+	}
+	if !strings.Contains(err.Error(), "--watch") || !strings.Contains(err.Error(), "--breakdown") {
+		t.Errorf("expected error to name both flags, got %q", err.Error())
+	}
+}
+
+// TestExecute_BreakdownWithCurrentRejected verifies that --breakdown with a
+// single-session selector (--current or --session) is rejected. Breakdown is
+// inherently cross-session so the combination is incoherent.
+func TestExecute_BreakdownWithCurrentRejected(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		cmd  *statusCommand
+	}{
+		{name: "current", cmd: &statusCommand{breakdown: true, current: true}},
+		{name: "session", cmd: &statusCommand{breakdown: true, sessionID: "abc"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := tc.cmd.Execute()
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), "--breakdown") {
+				t.Errorf("expected error to mention --breakdown, got %q", err.Error())
+			}
+		})
+	}
+}
+
+// TestPrintBreakdown_AcrossSessions exercises the breakdown path end-to-end:
+// it constructs two synthetic sessions in a temp dir (one sonnet-only, one
+// opus-only), points config at it via CLAUDE_CONFIG_DIR, runs Execute(), and
+// asserts the printed line contains both model abbreviations and a total
+// equal to the sum across both sessions.
+//
+// This test is NOT t.Parallel(): it mutates CLAUDE_CONFIG_DIR and replaces
+// os.Stdout for the duration of the call, both of which are process-global.
+func TestPrintBreakdown_AcrossSessions(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Two project subdirs, each with one session JSONL. Discovery treats
+	// the configured CLAUDE_CONFIG_DIR as the *base* dir and scans its
+	// immediate subdirectories for project-hashed folders containing
+	// session UUIDs — see pkg/discovery/discovery.go scanBaseDirectory.
+	projectA := filepath.Join(tmpDir, "project-a")
+	projectB := filepath.Join(tmpDir, "project-b")
+	if err := os.MkdirAll(projectA, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(projectB, 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use timestamps a few minutes ago so they fall inside the "today"
+	// window regardless of when the test runs (as long as it doesn't run
+	// across midnight, which would also trip the production code).
+	now := time.Now().UTC()
+	tsA1 := now.Add(-10 * time.Minute).Format(time.RFC3339)
+	tsA2 := now.Add(-5 * time.Minute).Format(time.RFC3339)
+	tsB1 := now.Add(-7 * time.Minute).Format(time.RFC3339)
+
+	sessionA := "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+	sessionB := "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+
+	// Session A: 100 + 50 = 150 sonnet tokens.
+	contentA := `{"timestamp":"` + tsA1 + `","sessionId":"` + sessionA + `","message":{"id":"m1","model":"claude-sonnet-4-6","usage":{"input_tokens":80,"output_tokens":20}}}
+{"timestamp":"` + tsA2 + `","sessionId":"` + sessionA + `","message":{"id":"m2","model":"claude-sonnet-4-6","usage":{"input_tokens":40,"output_tokens":10}}}
+`
+	// Session B: 200 + 100 = 300 opus tokens.
+	contentB := `{"timestamp":"` + tsB1 + `","sessionId":"` + sessionB + `","message":{"id":"m3","model":"claude-opus-4-7","usage":{"input_tokens":200,"output_tokens":100}}}
+`
+
+	if err := os.WriteFile(filepath.Join(projectA, sessionA+".jsonl"), []byte(contentA), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projectB, sessionB+".jsonl"), []byte(contentB), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("CLAUDE_CONFIG_DIR", tmpDir)
+	t.Setenv("TOKEN_MONITOR_LOG_LEVEL", "error")
+
+	out := captureStdout(t, func() {
+		cmd := &statusCommand{breakdown: true, window: "today"}
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("Execute() error = %v", err)
+		}
+	})
+
+	got := strings.TrimSpace(out)
+
+	// Both abbreviations must appear; the cross-session total is 450.
+	for _, want := range []string{"day:", "son:", "opus:", "450"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("breakdown output missing %q\n  got: %q", want, got)
+		}
+	}
+}
+
+// TestPrintBreakdown_EmptyResult covers the "everything filtered out" case:
+// a session exists but its only entry sits outside the requested window, so
+// the line collapses to "<label>:0".
+func TestPrintBreakdown_EmptyResult(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	project := filepath.Join(tmpDir, "project-old")
+	if err := os.MkdirAll(project, 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	// Timestamp is 10 days ago — outside the "today" window.
+	old := time.Now().Add(-10 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	sess := "c3d4e5f6-a7b8-9012-cdef-123456789012"
+	content := `{"timestamp":"` + old + `","sessionId":"` + sess + `","message":{"id":"m1","model":"claude-sonnet-4-6","usage":{"input_tokens":50,"output_tokens":10}}}
+`
+	if err := os.WriteFile(filepath.Join(project, sess+".jsonl"), []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("CLAUDE_CONFIG_DIR", tmpDir)
+	t.Setenv("TOKEN_MONITOR_LOG_LEVEL", "error")
+
+	out := captureStdout(t, func() {
+		cmd := &statusCommand{breakdown: true, window: "today"}
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("Execute() error = %v", err)
+		}
+	})
+
+	got := strings.TrimSpace(out)
+	if got != "day:0" {
+		t.Errorf("expected empty-window output 'day:0', got %q", got)
+	}
+}
+
+// captureStdout replaces os.Stdout with a pipe for the duration of fn, then
+// restores it and returns whatever fn wrote. If anything in the plumbing
+// fails the test is aborted via t.Fatal — this helper is only used in tests
+// that genuinely need to read what Execute() printed.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	orig := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	os.Stdout = w
+
+	done := make(chan string, 1)
+	go func() {
+		buf, _ := io.ReadAll(r)
+		done <- string(buf)
+	}()
+
+	defer func() {
+		os.Stdout = orig
+	}()
+
+	fn()
+	if err := w.Close(); err != nil {
+		t.Fatalf("pipe writer close: %v", err)
+	}
+	return <-done
 }
