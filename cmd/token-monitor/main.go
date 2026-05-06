@@ -86,6 +86,8 @@ func run() error {
 		return runStatusCommand(globalOpts, args[1:])
 	case "serve":
 		return runServeCommand(globalOpts, args[1:])
+	case "install":
+		return runInstallCommand(globalOpts, args[1:])
 	case "help":
 		return showUsage()
 	default:
@@ -257,6 +259,7 @@ Commands:
   query       Fast single-metric token lookup (for hooks)
   status      Compact status line output (for Claude Code status)
   serve       MCP server mode (for Claude Code MCP integration)
+  install     Install token-monitor into Claude Code (statusline, mcp, hook)
   help        Show this help message
 
 Global Flags:
@@ -357,6 +360,17 @@ Integration Examples:
 
   # Start MCP server
   token-monitor serve --stdio
+
+  # Install everything into Claude Code in one command
+  token-monitor install all
+
+  # Or install pieces individually
+  token-monitor install statusline
+  token-monitor install mcp --global --absolute
+  token-monitor install hook
+
+  # Remove everything cleanly
+  token-monitor install --uninstall-all
 
 Version: %s
 `
