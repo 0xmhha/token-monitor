@@ -121,7 +121,6 @@ func TestParseWindow_MalformedReturnsError(t *testing.T) {
 		"week",   // unsupported unit
 	}
 	for _, s := range cases {
-		s := s
 		t.Run(s, func(t *testing.T) {
 			t.Parallel()
 			if _, err := ParseWindow(s, now); err == nil {

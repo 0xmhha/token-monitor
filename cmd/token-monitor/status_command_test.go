@@ -23,7 +23,6 @@ func TestAbbreviateModel(t *testing.T) {
 		{"", ""},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.model, func(t *testing.T) {
 			t.Parallel()
 			if got := abbreviateModel(tc.model); got != tc.want {
@@ -49,7 +48,6 @@ func TestWindowLabel(t *testing.T) {
 		{"all", "all"},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.window, func(t *testing.T) {
 			t.Parallel()
 			if got := windowLabel(tc.window); got != tc.want {

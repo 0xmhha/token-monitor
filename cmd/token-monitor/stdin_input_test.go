@@ -93,7 +93,6 @@ func TestParseStatuslineInput_MalformedReturnsNil(t *testing.T) {
 		`[1, 2, 3]`, // wrong shape (array, not object)
 	}
 	for _, s := range cases {
-		s := s
 		t.Run(s, func(t *testing.T) {
 			t.Parallel()
 			// Note: JSON arrays can technically unmarshal into a struct
