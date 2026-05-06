@@ -212,8 +212,13 @@ func (c *sessionContext) handleGetUsageByWindow(args json.RawMessage) (*ToolCall
 		Window    string `json:"window"`
 		ModelGlob string `json:"model_glob"`
 	}
-	if err := json.Unmarshal(args, &params); err != nil {
-		return nil, fmt.Errorf("invalid arguments: %w", err)
+	// Mirror sibling handlers: tolerate empty/null arguments so the
+	// "window required" message surfaces instead of a JSON parse error
+	// when a caller forgets the params block entirely.
+	if len(args) > 0 {
+		if err := json.Unmarshal(args, &params); err != nil {
+			return nil, fmt.Errorf("invalid arguments: %w", err)
+		}
 	}
 	if params.Window == "" {
 		return nil, fmt.Errorf("window is required")
