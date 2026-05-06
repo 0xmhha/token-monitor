@@ -296,7 +296,7 @@ func writeHooks(path string, settings, hooks map[string]any, newGroups []any, fi
 			return "", err
 		}
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil { //nolint:gosec // user config file
+	if err := atomicWriteFile(path, []byte(updated), 0o644); err != nil {
 		return "", fmt.Errorf("write %s: %w", path, err)
 	}
 

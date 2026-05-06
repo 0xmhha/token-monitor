@@ -76,8 +76,9 @@ func InstallMCP(scope MCPScope, dryRun, uninstall, useAbsolutePath bool) (string
 			if !mcpEntryIsOurs(curMap) {
 				return "", fmt.Errorf(
 					"mcp: refusing to overwrite existing %q entry in %s — "+
-						"the existing command differs from ours; "+
-						"remove the entry manually or run with --uninstall first",
+						"entry lacks the '_managed_by: \"token-monitor\"' sentinel "+
+						"and is treated as user-authored; "+
+						"remove the entry manually if you want this installer to manage it",
 					mcpServerName, path)
 			}
 		}
@@ -105,7 +106,7 @@ func InstallMCP(scope MCPScope, dryRun, uninstall, useAbsolutePath bool) (string
 			return "", err
 		}
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil { //nolint:gosec // user config file
+	if err := atomicWriteFile(path, []byte(updated), 0o644); err != nil {
 		return "", fmt.Errorf("write %s: %w", path, err)
 	}
 
@@ -126,10 +127,13 @@ func uninstallMCP(path string, existing, servers map[string]any, fileExisted, dr
 	}
 
 	if curMap, ok := cur.(map[string]any); ok && !mcpEntryIsOurs(curMap) {
-		return "", fmt.Errorf(
-			"mcp: refusing to remove %q entry in %s — "+
-				"command does not look like ours; remove manually if intended",
-			mcpServerName, path)
+		// User-authored entry (no '_managed_by' sentinel). Uninstall is a
+		// no-op so we never silently delete something the user wrote — even
+		// if the command/args happen to match ours.
+		return fmt.Sprintf(
+			"mcp: skipping %q entry in %s — lacks the '_managed_by: \"token-monitor\"' sentinel; "+
+				"treating as user-authored, remove manually if intended",
+			mcpServerName, path), nil
 	}
 
 	delete(servers, mcpServerName)
@@ -152,7 +156,7 @@ func uninstallMCP(path string, existing, servers map[string]any, fileExisted, dr
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil { //nolint:gosec // user config file
+	if err := atomicWriteFile(path, []byte(updated), 0o644); err != nil {
 		return "", fmt.Errorf("write %s: %w", path, err)
 	}
 	return fmt.Sprintf("mcp: removed token-monitor entry from %s (backup: %s)", path, backupPath), nil
@@ -204,41 +208,18 @@ func buildMCPEntry(useAbsolutePath bool) (map[string]any, error) {
 }
 
 // mcpEntryIsOurs reports whether an entry was created by this installer.
-// A value-only "_managed_by": "token-monitor" sentinel is the source of
-// truth; we never silently delete entries placed there by users.
+// Strict policy: an entry is ours only if it carries the
+// "_managed_by": "token-monitor" sentinel. Entries lacking the sentinel are
+// treated as user-authored — we never silently overwrite or remove them, even
+// if their command/args happen to match. v0.2 has not shipped, so there are
+// no legacy installs to support with looser matching.
 func mcpEntryIsOurs(entry map[string]any) bool {
 	v, ok := entry["_managed_by"]
 	if !ok {
-		// Backwards compat: an entry whose command equals the bare binary name
-		// or whose command path's base equals the binary name AND whose args
-		// match ours is also considered ours. This handles cases where the
-		// user (or an older version of this tool) registered without the
-		// sentinel.
-		return looksLikeOurMCPEntry(entry)
+		return false
 	}
 	s, ok := v.(string)
 	return ok && s == "token-monitor"
-}
-
-func looksLikeOurMCPEntry(entry map[string]any) bool {
-	cmd, _ := entry["command"].(string)
-	if cmd == "" {
-		return false
-	}
-	if cmd != mcpServerCommand && filepath.Base(cmd) != mcpServerCommand {
-		return false
-	}
-	rawArgs, _ := entry["args"].([]any)
-	if len(rawArgs) != len(mcpServerArgs) {
-		return false
-	}
-	for i, want := range mcpServerArgs {
-		got, _ := rawArgs[i].(string)
-		if got != want {
-			return false
-		}
-	}
-	return true
 }
 
 func mcpEntriesEquivalent(a, b map[string]any) bool {
@@ -263,6 +244,11 @@ func mcpEntriesEquivalent(a, b map[string]any) bool {
 
 // readJSONObject reads a JSON object from path. Missing file -> empty map.
 // A non-object root (array, scalar) is rejected.
+//
+// Numbers are decoded as json.Number (via UseNumber) instead of float64. This
+// preserves int64 precision above 2^53; we rewrite every key on every install,
+// so a float64 round-trip would silently corrupt unrelated user data
+// (~/.claude.json holds opaque numeric IDs from Claude Code).
 func readJSONObject(path string) (map[string]any, bool, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // path supplied by caller
 	if err != nil {
@@ -274,8 +260,10 @@ func readJSONObject(path string) (map[string]any, bool, error) {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return map[string]any{}, true, nil
 	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
 	var obj map[string]any
-	if err := json.Unmarshal(data, &obj); err != nil {
+	if err := dec.Decode(&obj); err != nil {
 		return nil, true, fmt.Errorf("parse %s as JSON object: %w", path, err)
 	}
 	if obj == nil {

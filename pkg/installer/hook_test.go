@@ -263,3 +263,32 @@ func TestInstallHook_UninstallNoFileIsNoop(t *testing.T) {
 		t.Errorf("expected noop summary, got %q", summary)
 	}
 }
+
+// TestInstallHook_CorruptedJSONLeavesFileUntouched: malformed settings.json
+// must surface as an error without rewriting the file.
+func TestInstallHook_CorruptedJSONLeavesFileUntouched(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bad := []byte("{not valid json")
+	if err := os.WriteFile(settingsPath, bad, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := InstallHook(false, false)
+	if err == nil {
+		t.Fatalf("expected parse error, got nil")
+	}
+
+	got, readErr := os.ReadFile(settingsPath)
+	if readErr != nil {
+		t.Fatalf("read back: %v", readErr)
+	}
+	if string(got) != string(bad) {
+		t.Errorf("corrupted file was modified: got %q, want %q", got, bad)
+	}
+}

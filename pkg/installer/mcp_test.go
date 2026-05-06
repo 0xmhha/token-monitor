@@ -238,6 +238,11 @@ func TestInstallMCP_DryRunDoesNotWrite(t *testing.T) {
 
 func TestInstallMCP_ProjectScope(t *testing.T) {
 	cwd := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(cwd); err != nil {
 		t.Fatal(err)
 	}
@@ -270,5 +275,100 @@ func TestInstallMCP_UninstallNoFileIsNoop(t *testing.T) {
 	}
 	if !strings.Contains(summary, "nothing to uninstall") {
 		t.Errorf("expected noop summary, got %q", summary)
+	}
+}
+
+// TestInstallMCP_PreservesLargeIntegers verifies that numbers above 2^53 in
+// unrelated keys are NOT silently corrupted to a nearby float64. The decoder
+// uses json.Number so values round-trip byte-for-byte.
+func TestInstallMCP_PreservesLargeIntegers(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	path := filepath.Join(home, ".claude.json")
+	// 9007199254740993 = 2^53 + 1, the smallest int that loses precision in
+	// float64. Pre-existing key unrelated to mcpServers.
+	original := `{"big_number": 9007199254740993, "mcpServers": {}}`
+	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := InstallMCP(MCPScopeGlobal, false, false, false); err != nil {
+		t.Fatalf("install error: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "9007199254740993") {
+		t.Errorf("large integer corrupted (likely rounded to 9007199254740992): %s", data)
+	}
+	if strings.Contains(string(data), "9007199254740992") {
+		t.Errorf("large integer rounded down to 2^53: %s", data)
+	}
+}
+
+// TestInstallMCP_CorruptedJSONLeavesFileUntouched: when the existing file is
+// malformed, install must error out without touching the bytes on disk.
+func TestInstallMCP_CorruptedJSONLeavesFileUntouched(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	path := filepath.Join(home, ".claude.json")
+	bad := []byte("{not valid json")
+	if err := os.WriteFile(path, bad, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := InstallMCP(MCPScopeGlobal, false, false, false)
+	if err == nil {
+		t.Fatalf("expected parse error, got nil")
+	}
+
+	got, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatalf("read back: %v", readErr)
+	}
+	if string(got) != string(bad) {
+		t.Errorf("corrupted file was modified: got %q, want %q", got, bad)
+	}
+}
+
+// TestInstallMCP_UninstallSkipsUnmanagedEntry: uninstall must not delete an
+// entry that lacks the _managed_by sentinel even if the name matches —
+// it's user-authored.
+func TestInstallMCP_UninstallSkipsUnmanagedEntry(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	path := filepath.Join(home, ".claude.json")
+	initial := map[string]any{
+		"mcpServers": map[string]any{
+			"token-monitor": map[string]any{
+				"command": "token-monitor",
+				"args":    []any{"serve", "--stdio"},
+				// No _managed_by sentinel — user-authored.
+			},
+		},
+	}
+	data, _ := json.Marshal(initial)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := InstallMCP(MCPScopeGlobal, false, true, false)
+	if err != nil {
+		t.Fatalf("uninstall error: %v", err)
+	}
+	if !strings.Contains(summary, "user-authored") && !strings.Contains(summary, "skipping") {
+		t.Errorf("expected user-authored skip notice, got %q", summary)
+	}
+
+	// Entry must still be present.
+	obj := readJSON(t, path)
+	servers := obj["mcpServers"].(map[string]any)
+	if _, ok := servers["token-monitor"]; !ok {
+		t.Errorf("user-authored entry was deleted")
 	}
 }

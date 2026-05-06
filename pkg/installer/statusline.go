@@ -181,7 +181,7 @@ func ensureParentDir(path string) error {
 }
 
 func writeFileExecutable(path, content string) error {
-	if err := os.WriteFile(path, []byte(content), 0o755); err != nil { //nolint:gosec // executable script intentionally
+	if err := atomicWriteFile(path, []byte(content), 0o755); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
@@ -192,5 +192,9 @@ func formatDryRun(label, path, before, after string, createdStub bool) string {
 	if createdStub {
 		prefix += " (creating new stub)"
 	}
-	return fmt.Sprintf("%s\n--- before ---\n%s\n--- after ---\n%s", prefix, before, after)
+	beforeRendered := before
+	if createdStub {
+		beforeRendered = "(file does not exist; will be created)"
+	}
+	return fmt.Sprintf("%s\n--- before ---\n%s\n--- after ---\n%s", prefix, beforeRendered, after)
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/0xmhha/token-monitor/pkg/installer"
@@ -67,8 +68,8 @@ func runInstallCommand(globalOpts globalOptions, args []string) error {
 
 func runInstallStatusline(args []string) error {
 	fs := flag.NewFlagSet("install statusline", flag.ContinueOnError)
-	dryRun := fs.Bool("dry-run", false, "show what would change without writing")
-	printFlag := fs.Bool("print", false, "alias for --dry-run (print diff to stdout)")
+	dryRun := fs.Bool("dry-run", false, "show full before/after diff without writing")
+	printFlag := fs.Bool("print", false, "print just the managed snippet for manual integration (no diff, no read of existing file, no write)")
 	uninstall := fs.Bool("uninstall", false, "remove the managed block")
 	target := fs.String("target", "", "override path (default: ~/.claude/statusline-command.sh)")
 	fs.Usage = func() { printInstallStatuslineUsage(fs) }
@@ -80,7 +81,17 @@ func runInstallStatusline(args []string) error {
 		return nil
 	}
 
-	summary, err := installer.InstallStatusline(*target, *dryRun || *printFlag, *uninstall)
+	// --print is snippet-only: emit StatuslineSnippet verbatim, do not touch
+	// existing files. Useful for users who want to integrate the block into
+	// their own scripts manually. --dry-run remains the full diff preview.
+	if *printFlag {
+		// Write verbatim — the snippet embeds %s inside a shell printf, which
+		// would trip fmt.Print's format-string vet check.
+		_, _ = os.Stdout.WriteString(installer.StatuslineSnippet + "\n")
+		return nil
+	}
+
+	summary, err := installer.InstallStatusline(*target, *dryRun, *uninstall)
 	if err != nil {
 		return err
 	}
@@ -167,9 +178,14 @@ func runInstallAll(args []string) error {
 		{"hook", func() (string, error) { return installer.InstallHook(*dryRun, false) }},
 	}
 
-	for _, s := range steps {
+	for i, s := range steps {
 		summary, err := s.fn()
 		if err != nil {
+			if i > 0 && !*dryRun {
+				// Earlier steps may have written to disk; surface an actionable
+				// recovery path so the user isn't left with a partial install.
+				fmt.Println("hint: previous steps may have succeeded; run 'token-monitor install --uninstall-all' to revert")
+			}
 			return fmt.Errorf("install all: %s step failed: %w", s.name, err)
 		}
 		fmt.Println(summary)
