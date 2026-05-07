@@ -31,15 +31,17 @@ func validMetricsList() string {
 
 // queryOutput is the JSON shape for --json output.
 type queryOutput struct {
-	SessionID      string  `json:"session_id"`
-	TotalTokens    int     `json:"total_tokens"`
-	InputTokens    int     `json:"input_tokens"`
-	OutputTokens   int     `json:"output_tokens"`
-	Count          int     `json:"count"`
-	BurnRate       float64 `json:"burn_rate"`
-	BurnRateHour   float64 `json:"burn_rate_hour"`
-	BlockRemaining string  `json:"block_remaining"`
-	BlockTokens    int     `json:"block_tokens"`
+	SessionID           string  `json:"session_id"`
+	TotalTokens         int     `json:"total_tokens"`
+	InputTokens         int     `json:"input_tokens"`
+	OutputTokens        int     `json:"output_tokens"`
+	CacheCreationTokens int     `json:"cache_creation_tokens"`
+	CacheReadTokens     int     `json:"cache_read_tokens"`
+	Count               int     `json:"count"`
+	BurnRate            float64 `json:"burn_rate"`
+	BurnRateHour        float64 `json:"burn_rate_hour"`
+	BlockRemaining      string  `json:"block_remaining"`
+	BlockTokens         int     `json:"block_tokens"`
 }
 
 // queryCommand provides fast, lightweight metric extraction without BoltDB.
@@ -203,15 +205,17 @@ func (c *queryCommand) printJSON(sessionID string, agg aggregator.Aggregator) er
 	}
 
 	out := queryOutput{
-		SessionID:      sessionID,
-		TotalTokens:    stats.TotalTokens,
-		InputTokens:    stats.InputTokens,
-		OutputTokens:   stats.OutputTokens,
-		Count:          stats.Count,
-		BurnRate:       burnRate.TokensPerMinute,
-		BurnRateHour:   burnRate.TokensPerHour,
-		BlockRemaining: display.FormatDuration(remaining),
-		BlockTokens:    block.TotalTokens,
+		SessionID:           sessionID,
+		TotalTokens:         stats.TotalTokens,
+		InputTokens:         stats.InputTokens,
+		OutputTokens:        stats.OutputTokens,
+		CacheCreationTokens: stats.CacheCreationTokens,
+		CacheReadTokens:     stats.CacheReadTokens,
+		Count:               stats.Count,
+		BurnRate:            burnRate.TokensPerMinute,
+		BurnRateHour:        burnRate.TokensPerHour,
+		BlockRemaining:      display.FormatDuration(remaining),
+		BlockTokens:         block.TotalTokens,
 	}
 
 	enc := json.NewEncoder(os.Stdout)

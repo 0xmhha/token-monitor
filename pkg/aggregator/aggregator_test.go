@@ -630,6 +630,61 @@ func TestGroupedStats_ByHour(t *testing.T) {
 	}
 }
 
+func TestAdd_CacheTokens(t *testing.T) {
+	t.Parallel()
+
+	agg := New(Config{TrackPercentiles: false})
+
+	entries := []parser.UsageEntry{
+		{
+			SessionID: "session-1",
+			Timestamp: time.Now(),
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{
+					InputTokens:              100,
+					OutputTokens:             50,
+					CacheCreationInputTokens: 30,
+					CacheReadInputTokens:     20,
+				},
+			},
+		},
+		{
+			SessionID: "session-1",
+			Timestamp: time.Now().Add(1 * time.Minute),
+			Message: parser.Message{
+				Model: "claude-3-5-sonnet-20241022",
+				Usage: parser.Usage{
+					InputTokens:              200,
+					OutputTokens:             80,
+					CacheCreationInputTokens: 10,
+					CacheReadInputTokens:     40,
+				},
+			},
+		},
+	}
+
+	for _, entry := range entries {
+		agg.Add(entry)
+	}
+
+	stats := agg.Stats()
+
+	if stats.CacheCreationTokens != 40 {
+		t.Errorf("CacheCreationTokens = %d, want 40", stats.CacheCreationTokens)
+	}
+	if stats.CacheReadTokens != 60 {
+		t.Errorf("CacheReadTokens = %d, want 60", stats.CacheReadTokens)
+	}
+
+	// TotalTokens must equal InputTokens + OutputTokens + CacheCreationTokens + CacheReadTokens.
+	expectedTotal := stats.InputTokens + stats.OutputTokens + stats.CacheCreationTokens + stats.CacheReadTokens
+	if stats.TotalTokens != expectedTotal {
+		t.Errorf("TotalTokens = %d, want %d (input+output+cacheCreate+cacheRead)",
+			stats.TotalTokens, expectedTotal)
+	}
+}
+
 func TestBurnRate_EmptyAggregator(t *testing.T) {
 	t.Parallel()
 
