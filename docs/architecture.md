@@ -8,7 +8,7 @@ Token Monitor is a real-time monitoring tool for Claude Code CLI token usage, wr
 
 - [README.md](../README.md) — User-facing overview, installation, usage
 - [CHANGELOG.md](../CHANGELOG.md) — Release notes
-- [TESTING.md](TESTING.md) — Testing strategy and coverage
+- [testing.md](testing.md) — Testing strategy and coverage
 - [roadmap.md](roadmap.md) — Future work
 
 ## Design Goals

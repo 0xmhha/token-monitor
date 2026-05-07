@@ -121,7 +121,7 @@ token-monitor/
 ├── docs/                       # Documentation
 │   ├── architecture.md        # Technical architecture
 │   ├── roadmap.md             # Development roadmap
-│   └── TESTING.md             # Testing guide
+│   └── testing.md             # Testing guide
 ├── .github/
 │   └── workflows/             # CI/CD pipelines
 ├── .golangci.yml              # Linter configuration
