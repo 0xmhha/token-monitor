@@ -83,14 +83,14 @@ func InstallHook(dryRun, uninstall bool) (string, error) {
 	// Conflict check: an unmanaged hook running our exact command would be
 	// confused by us claiming ownership.
 	for _, g := range groups {
-		group, ok := g.(map[string]any)
-		if !ok {
+		group, isGroupMap := g.(map[string]any)
+		if !isGroupMap {
 			continue
 		}
 		inner, _ := group["hooks"].([]any)
 		for _, h := range inner {
-			hm, ok := h.(map[string]any)
-			if !ok {
+			hm, isHookMap := h.(map[string]any)
+			if !isHookMap {
 				continue
 			}
 			if isManagedEntry(hm) {
@@ -286,8 +286,8 @@ func writeHooks(path string, settings, hooks map[string]any, newGroups []any, fi
 		return fmt.Sprintf("hook (dry-run): would %s %s in %s\n--- after ---\n%s", action, hookEvent, path, updated), nil
 	}
 
-	if err := ensureParentDir(path); err != nil {
-		return "", err
+	if dirErr := ensureParentDir(path); dirErr != nil {
+		return "", dirErr
 	}
 	backupPath := ""
 	if fileExisted {
@@ -296,8 +296,8 @@ func writeHooks(path string, settings, hooks map[string]any, newGroups []any, fi
 			return "", err
 		}
 	}
-	if err := atomicWriteFile(path, []byte(updated), 0o644); err != nil {
-		return "", fmt.Errorf("write %s: %w", path, err)
+	if writeErr := atomicWriteFile(path, []byte(updated), 0o644); writeErr != nil {
+		return "", fmt.Errorf("write %s: %w", path, writeErr)
 	}
 
 	summary := fmt.Sprintf("hook: %s %s in %s", pastTense, hookEvent, path)

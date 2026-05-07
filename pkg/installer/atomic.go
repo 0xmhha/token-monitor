@@ -24,7 +24,7 @@ func atomicWriteFile(path string, content []byte, mode os.FileMode) error {
 	// Refuse symlinks before any write — silently following the link would
 	// rewrite a target outside the expected location (e.g., dotfiles repo).
 	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		real, _ := filepath.EvalSymlinks(path)
+		real, _ := filepath.EvalSymlinks(path) //nolint:errcheck // best-effort resolve for diagnostic message
 		return fmt.Errorf(
 			"refusing to write through symlink %s -> %s; "+
 				"resolve manually or remove the symlink",
@@ -40,9 +40,9 @@ func atomicWriteFile(path string, content []byte, mode os.FileMode) error {
 	}
 
 	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".token-monitor-tmp-*")
-	if err != nil {
-		return fmt.Errorf("create temp file in %s: %w", dir, err)
+	tmp, createErr := os.CreateTemp(dir, ".token-monitor-tmp-*")
+	if createErr != nil {
+		return fmt.Errorf("create temp file in %s: %w", dir, createErr)
 	}
 	tmpPath := tmp.Name()
 
@@ -50,26 +50,26 @@ func atomicWriteFile(path string, content []byte, mode os.FileMode) error {
 	committed := false
 	defer func() {
 		if !committed {
-			_ = os.Remove(tmpPath)
+			_ = os.Remove(tmpPath) //nolint:errcheck // best-effort cleanup
 		}
 	}()
 
-	if _, err := tmp.Write(content); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write temp file %s: %w", tmpPath, err)
+	if _, writeErr := tmp.Write(content); writeErr != nil {
+		_ = tmp.Close() //nolint:errcheck // best-effort cleanup before returning write error
+		return fmt.Errorf("write temp file %s: %w", tmpPath, writeErr)
 	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("sync temp file %s: %w", tmpPath, err)
+	if syncErr := tmp.Sync(); syncErr != nil {
+		_ = tmp.Close() //nolint:errcheck // best-effort cleanup before returning sync error
+		return fmt.Errorf("sync temp file %s: %w", tmpPath, syncErr)
 	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close temp file %s: %w", tmpPath, err)
+	if closeErr := tmp.Close(); closeErr != nil {
+		return fmt.Errorf("close temp file %s: %w", tmpPath, closeErr)
 	}
-	if err := os.Chmod(tmpPath, finalMode); err != nil {
-		return fmt.Errorf("chmod temp file %s: %w", tmpPath, err)
+	if chmodErr := os.Chmod(tmpPath, finalMode); chmodErr != nil {
+		return fmt.Errorf("chmod temp file %s: %w", tmpPath, chmodErr)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		return fmt.Errorf("rename %s to %s: %w", tmpPath, path, err)
+	if renameErr := os.Rename(tmpPath, path); renameErr != nil {
+		return fmt.Errorf("rename %s to %s: %w", tmpPath, path, renameErr)
 	}
 	committed = true
 	return nil

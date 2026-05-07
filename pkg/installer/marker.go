@@ -141,7 +141,7 @@ func BackupFile(path string) (string, error) {
 		}
 		return "", fmt.Errorf("backup: open source: %w", err)
 	}
-	defer func() { _ = src.Close() }()
+	defer func() { _ = src.Close() }() //nolint:errcheck // best-effort close after read
 
 	info, err := src.Stat()
 	if err != nil {
@@ -155,18 +155,20 @@ func BackupFile(path string) (string, error) {
 	// the timestamp matches an existing backup. Append a short suffix
 	// (.1, .2, ...) until O_EXCL succeeds. Cap at 100 attempts so a stuck
 	// filesystem can't loop forever.
+	// #nosec G304 -- path is caller-supplied; BackupFile is an intentional file-copy primitive
 	dst, err := os.OpenFile(backupPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
 	for attempt := 1; err != nil && os.IsExist(err) && attempt < 100; attempt++ {
 		backupPath = fmt.Sprintf("%s.bak.%s.%d", path, timestamp, attempt)
+		// #nosec G304 -- path is caller-supplied; BackupFile is an intentional file-copy primitive
 		dst, err = os.OpenFile(backupPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
 	}
 	if err != nil {
 		return "", fmt.Errorf("backup: create %s: %w", backupPath, err)
 	}
-	defer func() { _ = dst.Close() }()
+	defer func() { _ = dst.Close() }() //nolint:errcheck // best-effort close after copy
 
-	if _, err := io.Copy(dst, src); err != nil {
-		return "", fmt.Errorf("backup: copy: %w", err)
+	if _, copyErr := io.Copy(dst, src); copyErr != nil {
+		return "", fmt.Errorf("backup: copy: %w", copyErr)
 	}
 	return backupPath, nil
 }

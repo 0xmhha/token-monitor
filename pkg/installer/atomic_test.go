@@ -130,8 +130,8 @@ func TestAtomicWriteFile_CleansUpTempOnRenameFailure(t *testing.T) {
 
 	// Verify no stray temp files were left behind. The dir is read-only so
 	// we restore perms to inspect contents.
-	if err := os.Chmod(dir, 0o755); err != nil {
-		t.Fatal(err)
+	if chmodErr := os.Chmod(dir, 0o755); chmodErr != nil {
+		t.Fatal(chmodErr)
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {

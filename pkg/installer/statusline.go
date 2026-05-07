@@ -87,8 +87,8 @@ func InstallStatusline(path string, dryRun, uninstall bool) (string, error) {
 		return formatDryRun("statusline", path, existing, updated, createdStub), nil
 	}
 
-	if err := ensureParentDir(path); err != nil {
-		return "", err
+	if dirErr := ensureParentDir(path); dirErr != nil {
+		return "", dirErr
 	}
 
 	backupPath := ""
@@ -99,8 +99,8 @@ func InstallStatusline(path string, dryRun, uninstall bool) (string, error) {
 		}
 	}
 
-	if err := writeFileExecutable(path, updated); err != nil {
-		return "", err
+	if writeErr := writeFileExecutable(path, updated); writeErr != nil {
+		return "", writeErr
 	}
 
 	summary := fmt.Sprintf("statusline: installed at %s", path)
@@ -144,14 +144,14 @@ func uninstallStatusline(path, existing string, fileExisted, dryRun bool) (strin
 	}
 
 	if deleteFile {
-		if err := os.Remove(path); err != nil {
-			return "", fmt.Errorf("remove %s: %w", path, err)
+		if removeErr := os.Remove(path); removeErr != nil {
+			return "", fmt.Errorf("remove %s: %w", path, removeErr)
 		}
 		return fmt.Sprintf("statusline: removed managed block and deleted %s (backup: %s)", path, backupPath), nil
 	}
 
-	if err := writeFileExecutable(path, updated); err != nil {
-		return "", err
+	if writeErr := writeFileExecutable(path, updated); writeErr != nil {
+		return "", writeErr
 	}
 	return fmt.Sprintf("statusline: removed managed block from %s (backup: %s)", path, backupPath), nil
 }
@@ -174,7 +174,7 @@ func ensureParentDir(path string) error {
 	if dir == "" || dir == "." {
 		return nil
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("create %s: %w", dir, err)
 	}
 	return nil

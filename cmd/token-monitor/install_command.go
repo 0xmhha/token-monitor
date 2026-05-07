@@ -85,9 +85,12 @@ func runInstallStatusline(args []string) error {
 	// existing files. Useful for users who want to integrate the block into
 	// their own scripts manually. --dry-run remains the full diff preview.
 	if *printFlag {
-		// Write verbatim — the snippet embeds %s inside a shell printf, which
-		// would trip fmt.Print's format-string vet check.
-		_, _ = os.Stdout.WriteString(installer.StatuslineSnippet + "\n")
+		// os.Stdout.Write avoids both fmt.Print's format-string vet check
+		// (the snippet embeds %s inside a shell printf) and the printf
+		// linter that flags fmt.Fprint with %s in the payload. The error
+		// from Stdout.Write is fatal to the process anyway, so discarding
+		// it here is intentional.
+		_, _ = os.Stdout.Write([]byte(installer.StatuslineSnippet + "\n")) //nolint:errcheck
 		return nil
 	}
 
@@ -212,13 +215,13 @@ func installUninstallAll() error {
 		{"hook", func() (string, error) { return installer.InstallHook(false, true) }},
 	}
 
-	var results []result
+	results := make([]result, 0, len(steps))
 	for _, s := range steps {
 		summary, err := s.fn()
 		results = append(results, result{name: s.name, summary: summary, err: err})
 	}
 
-	var errs []string
+	errs := make([]string, 0, len(results))
 	for _, r := range results {
 		if r.err != nil {
 			fmt.Printf("%s: ERROR: %v\n", r.name, r.err)

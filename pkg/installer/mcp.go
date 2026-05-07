@@ -68,20 +68,12 @@ func InstallMCP(scope MCPScope, dryRun, uninstall, useAbsolutePath bool) (string
 		return uninstallMCP(path, existing, servers, fileExisted, dryRun)
 	}
 
-	if cur, ok := servers[mcpServerName]; ok {
-		if curMap, ok := cur.(map[string]any); ok {
-			if mcpEntriesEquivalent(curMap, desired) {
-				return fmt.Sprintf("mcp: already registered in %s (no changes)", path), nil
-			}
-			if !mcpEntryIsOurs(curMap) {
-				return "", fmt.Errorf(
-					"mcp: refusing to overwrite existing %q entry in %s — "+
-						"entry lacks the '_managed_by: \"token-monitor\"' sentinel "+
-						"and is treated as user-authored; "+
-						"remove the entry manually if you want this installer to manage it",
-					mcpServerName, path)
-			}
-		}
+	noopMsg, conflictErr := checkExistingMCPEntry(servers, desired, path)
+	if conflictErr != nil {
+		return "", conflictErr
+	}
+	if noopMsg != "" {
+		return noopMsg, nil
 	}
 
 	servers[mcpServerName] = desired
@@ -96,18 +88,9 @@ func InstallMCP(scope MCPScope, dryRun, uninstall, useAbsolutePath bool) (string
 		return fmt.Sprintf("mcp (dry-run): would write %s\n--- after ---\n%s", path, updated), nil
 	}
 
-	if err := ensureParentDir(path); err != nil {
+	backupPath, err := commitMCPWrite(path, []byte(updated), fileExisted)
+	if err != nil {
 		return "", err
-	}
-	backupPath := ""
-	if fileExisted {
-		backupPath, err = BackupFile(path)
-		if err != nil {
-			return "", err
-		}
-	}
-	if err := atomicWriteFile(path, []byte(updated), 0o644); err != nil {
-		return "", fmt.Errorf("write %s: %w", path, err)
 	}
 
 	summary := fmt.Sprintf("mcp: registered token-monitor in %s", path)
@@ -115,6 +98,58 @@ func InstallMCP(scope MCPScope, dryRun, uninstall, useAbsolutePath bool) (string
 		summary += fmt.Sprintf(" (backup: %s)", backupPath)
 	}
 	return summary, nil
+}
+
+// checkExistingMCPEntry inspects the existing entry for this server, if any.
+// It returns:
+//   - ("already registered ...", nil) when the existing entry is byte-equivalent
+//     to the desired one (caller should return this string and no error).
+//   - ("", err) when the existing entry is user-authored and would be overwritten
+//     (caller should return the error).
+//   - ("", nil) when there is no existing entry, or when the existing entry is
+//     ours and stale (caller should proceed to overwrite).
+func checkExistingMCPEntry(servers, desired map[string]any, path string) (string, error) {
+	cur, ok := servers[mcpServerName]
+	if !ok {
+		return "", nil
+	}
+	curMap, ok := cur.(map[string]any)
+	if !ok {
+		return "", nil
+	}
+	if mcpEntriesEquivalent(curMap, desired) {
+		return fmt.Sprintf("mcp: already registered in %s (no changes)", path), nil
+	}
+	if !mcpEntryIsOurs(curMap) {
+		return "", fmt.Errorf(
+			"mcp: refusing to overwrite existing %q entry in %s — "+
+				"entry lacks the '_managed_by: \"token-monitor\"' sentinel "+
+				"and is treated as user-authored; "+
+				"remove the entry manually if you want this installer to manage it",
+			mcpServerName, path)
+	}
+	return "", nil
+}
+
+// commitMCPWrite ensures the parent dir exists, takes a backup if the file
+// already existed, and atomically writes the updated content. It returns the
+// backup path (empty string if no backup was taken).
+func commitMCPWrite(path string, updated []byte, fileExisted bool) (string, error) {
+	if err := ensureParentDir(path); err != nil {
+		return "", err
+	}
+	backupPath := ""
+	if fileExisted {
+		bp, err := BackupFile(path)
+		if err != nil {
+			return "", err
+		}
+		backupPath = bp
+	}
+	if err := atomicWriteFile(path, updated, 0o644); err != nil {
+		return "", fmt.Errorf("write %s: %w", path, err)
+	}
+	return backupPath, nil
 }
 
 func uninstallMCP(path string, existing, servers map[string]any, fileExisted, dryRun bool) (string, error) {
@@ -126,7 +161,7 @@ func uninstallMCP(path string, existing, servers map[string]any, fileExisted, dr
 		return fmt.Sprintf("mcp: nothing to uninstall (no %q entry in %s)", mcpServerName, path), nil
 	}
 
-	if curMap, ok := cur.(map[string]any); ok && !mcpEntryIsOurs(curMap) {
+	if curMap, isMap := cur.(map[string]any); isMap && !mcpEntryIsOurs(curMap) {
 		// User-authored entry (no '_managed_by' sentinel). Uninstall is a
 		// no-op so we never silently delete something the user wrote — even
 		// if the command/args happen to match ours.
@@ -156,8 +191,8 @@ func uninstallMCP(path string, existing, servers map[string]any, fileExisted, dr
 	if err != nil {
 		return "", err
 	}
-	if err := atomicWriteFile(path, []byte(updated), 0o644); err != nil {
-		return "", fmt.Errorf("write %s: %w", path, err)
+	if writeErr := atomicWriteFile(path, []byte(updated), 0o644); writeErr != nil {
+		return "", fmt.Errorf("write %s: %w", path, writeErr)
 	}
 	return fmt.Sprintf("mcp: removed token-monitor entry from %s (backup: %s)", path, backupPath), nil
 }
@@ -191,7 +226,7 @@ func buildMCPEntry(useAbsolutePath bool) (map[string]any, error) {
 		// Resolve symlinks for stability — goreleaser/homebrew may symlink the
 		// installed binary, but Claude Code accepts either; we prefer the
 		// concrete path.
-		if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		if resolved, resolveErr := filepath.EvalSymlinks(exe); resolveErr == nil {
 			exe = resolved
 		}
 		cmd = exe
@@ -236,10 +271,7 @@ func mcpEntriesEquivalent(a, b map[string]any) bool {
 			return false
 		}
 	}
-	if a["_managed_by"] != b["_managed_by"] {
-		return false
-	}
-	return true
+	return a["_managed_by"] == b["_managed_by"]
 }
 
 // readJSONObject reads a JSON object from path. Missing file -> empty map.
@@ -263,8 +295,8 @@ func readJSONObject(path string) (map[string]any, bool, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
 	var obj map[string]any
-	if err := dec.Decode(&obj); err != nil {
-		return nil, true, fmt.Errorf("parse %s as JSON object: %w", path, err)
+	if decodeErr := dec.Decode(&obj); decodeErr != nil {
+		return nil, true, fmt.Errorf("parse %s as JSON object: %w", path, decodeErr)
 	}
 	if obj == nil {
 		obj = map[string]any{}

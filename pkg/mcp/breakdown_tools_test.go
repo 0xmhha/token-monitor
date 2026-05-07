@@ -61,10 +61,10 @@ func makeMultiModelSession(t *testing.T, sessionID string, entries []modelEntry)
 				"content": []any{},
 			},
 		}
-		data, err := json.Marshal(entry)
-		require.NoError(t, err)
-		_, err = f.Write(append(data, '\n'))
-		require.NoError(t, err)
+		data, marshalErr := json.Marshal(entry)
+		require.NoError(t, marshalErr)
+		_, writeErr := f.Write(append(data, '\n'))
+		require.NoError(t, writeErr)
 	}
 
 	require.NoError(t, f.Close())
@@ -162,12 +162,15 @@ func TestGetSessionBreakdown_NoCurrentSession(t *testing.T) {
 func TestGetTodayUsage_AggregatesAcrossSessions(t *testing.T) {
 	t.Parallel()
 
+	// Offsets in seconds, not hours — keeps entries inside the "today"
+	// window across timezones (CI runs UTC; nearby midnight could push
+	// hour-offsets to "yesterday").
 	sfA := makeMultiModelSession(t, "aaaaaaaa-1111-2222-3333-444444444444", []modelEntry{
-		{model: "claude-sonnet-4-6", input: 100, output: 50, timestampOffset: -1 * time.Hour},
+		{model: "claude-sonnet-4-6", input: 100, output: 50, timestampOffset: -3 * time.Second},
 	})
 	sfB := makeMultiModelSession(t, "bbbbbbbb-1111-2222-3333-444444444444", []modelEntry{
-		{model: "claude-opus-4-7", input: 200, output: 80, timestampOffset: -2 * time.Hour},
-		{model: "claude-sonnet-4-6", input: 50, output: 25, timestampOffset: -30 * time.Minute},
+		{model: "claude-opus-4-7", input: 200, output: 80, timestampOffset: -5 * time.Second},
+		{model: "claude-sonnet-4-6", input: 50, output: 25, timestampOffset: -1 * time.Second},
 	})
 
 	disc := &mockDiscoverer{sessions: []discovery.SessionFile{sfA, sfB}}
@@ -199,9 +202,12 @@ func TestGetTodayUsage_AggregatesAcrossSessions(t *testing.T) {
 func TestGetTodayUsage_GlobFiltersByModel(t *testing.T) {
 	t.Parallel()
 
+	// Offsets in seconds, not hours — keeps entries inside the "today"
+	// window across timezones (CI runs UTC; nearby midnight could push
+	// hour-offsets to "yesterday").
 	sf := makeMultiModelSession(t, "cccccccc-1111-2222-3333-444444444444", []modelEntry{
-		{model: "claude-sonnet-4-6", input: 100, output: 50, timestampOffset: -1 * time.Hour},
-		{model: "claude-opus-4-7", input: 500, output: 200, timestampOffset: -2 * time.Hour},
+		{model: "claude-sonnet-4-6", input: 100, output: 50, timestampOffset: -2 * time.Second},
+		{model: "claude-opus-4-7", input: 500, output: 200, timestampOffset: -4 * time.Second},
 	})
 
 	disc := &mockDiscoverer{sessions: []discovery.SessionFile{sf}}
