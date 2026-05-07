@@ -20,6 +20,7 @@ import (
 	"github.com/0xmhha/token-monitor/pkg/logger"
 	"github.com/0xmhha/token-monitor/pkg/parser"
 	"github.com/0xmhha/token-monitor/pkg/reader"
+	"github.com/0xmhha/token-monitor/pkg/sessionloader"
 )
 
 // statusCommand outputs a compact, formatted status line for Claude Code's status display.
@@ -169,43 +170,18 @@ func (c *statusCommand) printWatchLine(isTerminal bool, first bool) {
 	}
 }
 
-// collect resolves the target session(s) and aggregates token data.
+// collect resolves the target session(s) and aggregates token data
+// for the legacy single-line status output. Built on top of collectEntries
+// so the reader plumbing lives in one place.
 func (c *statusCommand) collect() (statusData, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return statusData{}, fmt.Errorf("failed to load config: %w", err)
-	}
-
-	log := c.buildLogger(cfg)
-	disc := discovery.New(cfg.ClaudeConfigDirs, log)
-
-	sessions, err := c.resolveSessions(disc)
+	entries, err := c.collectEntries()
 	if err != nil {
 		return statusData{}, err
 	}
 
-	posStore := reader.NewMemoryPositionStore()
-	r, err := reader.New(reader.Config{
-		PositionStore: posStore,
-		Parser:        parser.New(),
-	}, log)
-	if err != nil {
-		return statusData{}, fmt.Errorf("failed to create reader: %w", err)
-	}
-	defer r.Close() //nolint:errcheck
-
 	agg := aggregator.New(aggregator.Config{})
-	ctx := context.Background()
-
-	for _, sess := range sessions {
-		entries, _, readErr := r.ReadFrom(ctx, sess.FilePath, 0)
-		if readErr != nil {
-			log.Warn("failed to read session", "session", sess.SessionID, "error", readErr)
-			continue
-		}
-		for _, entry := range entries {
-			agg.Add(entry)
-		}
+	for _, entry := range entries {
+		agg.Add(entry)
 	}
 
 	stats := agg.Stats()
@@ -235,8 +211,7 @@ func (c *statusCommand) collect() (statusData, error) {
 //
 // When sessionID is empty (typical breakdown case: "all sessions today"),
 // this discovers every session under the configured Claude config dirs.
-// Read errors on individual sessions are logged and skipped, matching
-// collect()'s tolerance.
+// Per-session read errors are logged and skipped via pkg/sessionloader.
 func (c *statusCommand) collectEntries() ([]parser.UsageEntry, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -251,27 +226,13 @@ func (c *statusCommand) collectEntries() ([]parser.UsageEntry, error) {
 		return nil, err
 	}
 
-	posStore := reader.NewMemoryPositionStore()
-	r, err := reader.New(reader.Config{
-		PositionStore: posStore,
-		Parser:        parser.New(),
-	}, log)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create reader: %w", err)
+	factory := func() (reader.Reader, error) {
+		return reader.New(reader.Config{
+			PositionStore: reader.NewMemoryPositionStore(),
+			Parser:        parser.New(),
+		}, log)
 	}
-	defer r.Close() //nolint:errcheck
-
-	ctx := context.Background()
-	all := make([]parser.UsageEntry, 0, 1024)
-	for _, sess := range sessions {
-		entries, _, readErr := r.ReadFrom(ctx, sess.FilePath, 0)
-		if readErr != nil {
-			log.Warn("failed to read session", "session", sess.SessionID, "error", readErr)
-			continue
-		}
-		all = append(all, entries...)
-	}
-	return all, nil
+	return sessionloader.LoadEntries(context.Background(), sessions, factory, log)
 }
 
 // resolveSessions returns the session files to aggregate.

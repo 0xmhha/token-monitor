@@ -11,45 +11,29 @@ import (
 	"github.com/0xmhha/token-monitor/pkg/discovery"
 	"github.com/0xmhha/token-monitor/pkg/display"
 	"github.com/0xmhha/token-monitor/pkg/parser"
-	"github.com/0xmhha/token-monitor/pkg/reader"
+	"github.com/0xmhha/token-monitor/pkg/sessionloader"
 )
 
 // loadAllEntries discovers every session under the configured Claude config
 // dirs and returns the merged stream of usage entries plus the underlying
-// SessionFile list. Read errors on individual sessions are logged via `log`
-// and skipped (matching status_command.go's tolerance) so a single corrupt
-// JSONL file doesn't poison cross-session aggregation.
-//
-// This helper exists to deduplicate the reader+discover plumbing between
-// the new breakdown/window MCP tools and to mirror the behavior of
-// status_command.go's collect/collectEntries pair.
+// SessionFile list. Per-session read errors are logged via `log` and
+// skipped so a single corrupt JSONL file doesn't poison cross-session
+// aggregation. The reader plumbing is delegated to pkg/sessionloader,
+// shared with status_command.go.
 func loadAllEntries(
 	disc discovery.Discoverer,
-	readerFactory func() (reader.Reader, error),
+	readerFactory sessionloader.ReaderFactory,
 	log Logger,
 ) ([]parser.UsageEntry, []discovery.SessionFile, error) {
 	sessions, err := disc.Discover()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to discover sessions: %w", err)
 	}
-
-	r, err := readerFactory()
+	entries, err := sessionloader.LoadEntries(context.Background(), sessions, readerFactory, log)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create reader: %w", err)
+		return nil, nil, err
 	}
-	defer r.Close() //nolint:errcheck
-
-	ctx := context.Background()
-	all := make([]parser.UsageEntry, 0, 1024)
-	for _, sess := range sessions {
-		entries, _, readErr := r.ReadFrom(ctx, sess.FilePath, 0)
-		if readErr != nil {
-			log.Warn("failed to read session", "session", sess.SessionID, "error", readErr)
-			continue
-		}
-		all = append(all, entries...)
-	}
-	return all, sessions, nil
+	return entries, sessions, nil
 }
 
 // --- Tool definitions ---
