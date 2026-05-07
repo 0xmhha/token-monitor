@@ -359,7 +359,6 @@ go test -cover ./...
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/ARCHITECTURE.md) | System design, component interactions, data flow |
-| [Integration Guide](docs/INTEGRATION.md) | Claude Code hooks, MCP server, status line setup |
 | [Testing Guide](docs/TESTING.md) | Test strategy, coverage targets, CI/CD |
 | [Roadmap](docs/roadmap.md) | Planned features and version milestones |
 | [Contributing](CONTRIBUTING.md) | Development setup and PR process |
