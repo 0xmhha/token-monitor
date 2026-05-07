@@ -34,7 +34,36 @@ Claude Code consumes tokens with every interaction, but there's no built-in way 
 
 ## Installation
 
-### Pre-built Binaries
+### One-line installer (recommended for macOS / Linux)
+
+Auto-detects OS and architecture, downloads the latest release, and installs to
+`/usr/local/bin`:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/0xmhha/token-monitor/main/scripts/install.sh | sh
+```
+
+Override the install directory with `TOKEN_MONITOR_INSTALL_DIR`:
+
+```bash
+TOKEN_MONITOR_INSTALL_DIR="$HOME/.local/bin" \
+  curl -sSL https://raw.githubusercontent.com/0xmhha/token-monitor/main/scripts/install.sh | sh
+```
+
+Pin a specific version with `TOKEN_MONITOR_VERSION` (e.g. `v0.2.0`).
+
+### Go (any platform)
+
+If you have Go 1.24+ installed:
+
+```bash
+go install github.com/0xmhha/token-monitor/cmd/token-monitor@latest
+```
+
+The binary is placed in `$(go env GOPATH)/bin` (typically `~/go/bin`); make sure
+that directory is on your `PATH`.
+
+### Pre-built binaries (manual)
 
 Download from the [releases page](https://github.com/0xmhha/token-monitor/releases/latest):
 
@@ -47,24 +76,43 @@ sudo mv token-monitor /usr/local/bin/
 curl -L https://github.com/0xmhha/token-monitor/releases/latest/download/token-monitor_darwin_amd64.tar.gz | tar xz
 sudo mv token-monitor /usr/local/bin/
 
-# Linux (amd64)
+# Linux (amd64 / arm64)
 curl -L https://github.com/0xmhha/token-monitor/releases/latest/download/token-monitor_linux_amd64.tar.gz | tar xz
 sudo mv token-monitor /usr/local/bin/
 ```
 
-### From Source
+Windows: download the `.zip` archive from the releases page and place
+`token-monitor.exe` somewhere on your `PATH`.
+
+### From source
 
 ```bash
 git clone https://github.com/0xmhha/token-monitor.git
 cd token-monitor
 go build -o token-monitor ./cmd/token-monitor
+sudo mv token-monitor /usr/local/bin/
 ```
 
-### Verify
+### Verify and wire into Claude Code
 
 ```bash
+# 1) Confirm installation
 token-monitor --version
+
+# 2) Register Claude Code integration in one shot (idempotent, atomic, backed up)
+token-monitor install all
+
+# 3) Restart Claude Code so the statusline, MCP server, and PostToolUse
+#    hook are picked up.
 ```
+
+After step 2, every Claude Code tool call writes a token-usage line to the
+transcript via the PostToolUse hook, the inline statusline shows cross-session
+breakdown, and Claude itself can query usage tools (`get_today_usage`,
+`get_session_breakdown`, `get_usage_by_window`) over MCP.
+
+See [Installation Automation](#installation-automation) below for per-component
+control (`install statusline`, `install mcp`, `install hook`, `--uninstall-all`).
 
 ## Quick Start
 
