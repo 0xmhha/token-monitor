@@ -29,9 +29,11 @@ builds:
 
 archives:
   - id: default
+    # Stable, version-less asset names so 'releases/latest/download/<asset>'
+    # URLs in scripts/install.sh and README curl examples keep working
+    # across releases.
     name_template: >-
       {{ .ProjectName }}_
-      {{- .Version }}_
       {{- .Os }}_
       {{- .Arch }}
     files:
