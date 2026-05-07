@@ -630,7 +630,6 @@ func TestGroupedStats_ByHour(t *testing.T) {
 	}
 }
 
-
 func TestBurnRate_EmptyAggregator(t *testing.T) {
 	t.Parallel()
 

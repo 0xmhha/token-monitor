@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2026-05-07
+
+### Added
+
+#### Cross-Session Token Visibility
+- **`status --breakdown`**: cross-session compact line aggregating tokens by model
+  - `--window today|all|Nd|Nh` selects time range (default: today)
+  - `--model-glob '*sonnet*'` filters by model pattern
+  - Output format: `day:340K | son:128K | opus:212K`
+- **`status --from-stdin`**: consume Claude Code statusline JSON envelope; uses `session_id` for precise current-session detection
+
+#### MCP Tools (3 new)
+- `get_session_breakdown` — per-model totals for one session
+- `get_today_usage` — cross-session totals today, optional `model_glob` filter
+- `get_usage_by_window` — arbitrary window (today/all/Nd/Nh) with optional `model_glob`
+
+These let sub-agents query their own usage dynamically — useful when a parent agent dispatches sub-agents on different models and needs to attribute spend.
+
+#### Installation Automation
+- **`token-monitor install`** subcommand suite:
+  - `install statusline [--dry-run|--print|--uninstall|--target PATH]` — patches `~/.claude/statusline-command.sh` with a managed marker block
+  - `install mcp [--global|--project|--absolute|--uninstall]` — registers in `~/.claude.json` (global) or `.mcp.json` (project)
+  - `install hook [--uninstall]` — registers PostToolUse hook in `~/.claude/settings.json`
+  - `install all` / `install --uninstall-all` — convenience wrappers
+- All install operations are **idempotent**, **atomic** (rename pattern), refuse to overwrite user-authored entries (sentinel-based: `_managed_by: "token-monitor"`), and create timestamped backups (`*.bak.YYYYMMDD-HHMMSS`).
+- Symlink writes are refused (prevents silently overwriting dotfiles).
+- `json.Decoder.UseNumber()` preserves int64 precision >2^53 in `~/.claude.json`.
+
+### Changed
+- **`.mcp.json`**: now uses bare `"command": "token-monitor"` (PATH lookup) and includes the `_managed_by` sentinel. Use `install mcp --project --absolute` to write a resolved binary path explicitly.
+- **MCP error codes**: validation failures (missing/invalid arguments, session not found) now map to JSON-RPC `-32602 InvalidParams`. `-32603 InternalError` is reserved for unexpected internals (filesystem, marshaling). Sub-agents should now distinguish "called wrong" from "server broken" via the error code.
+
+### Fixed
+- `BreakdownByModel` reuses `parser.Usage.TotalTokens()` to prevent silent undercount if a new token field is added.
+- `--from-stdin --breakdown` correctly rejects mutually exclusive `--watch`/`--current`/`--session` instead of silently dropping the secondary flag.
+- `get_usage_by_window` tolerates `arguments: null` (returns helpful "window is required" instead of JSON parse error).
+- Atomic write of user config files (`~/.claude.json`, `~/.claude/settings.json`, `~/.claude/statusline-command.sh`); prevents truncation on power loss.
+
+---
+
 ## [0.1.1] - 2026-03-24
 
 ### Added

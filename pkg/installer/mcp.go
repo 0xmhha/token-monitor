@@ -201,9 +201,9 @@ func buildMCPEntry(useAbsolutePath bool) (map[string]any, error) {
 		args[i] = a
 	}
 	return map[string]any{
-		"command":      cmd,
-		"args":         args,
-		"_managed_by":  "token-monitor",
+		"command":     cmd,
+		"args":        args,
+		"_managed_by": "token-monitor",
 	}, nil
 }
 

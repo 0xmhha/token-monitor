@@ -57,7 +57,7 @@ func loadAllEntries(
 func toolGetSessionBreakdown() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_session_breakdown",
-		Description: "Get token usage broken down by model for the current or specified session.",
+		Description: "Get token usage broken down by model for the current or specified session. Synthetic-model entries are excluded.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -70,7 +70,7 @@ func toolGetSessionBreakdown() ToolDefinition {
 func toolGetTodayUsage() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_today_usage",
-		Description: "Get cumulative token usage today across all sessions, optionally filtered by model glob.",
+		Description: "Get cumulative token usage today across all sessions, optionally filtered by model glob. Synthetic-model entries are excluded.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -83,7 +83,7 @@ func toolGetTodayUsage() ToolDefinition {
 func toolGetUsageByWindow() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_usage_by_window",
-		Description: "Get token usage for an arbitrary time window with optional model filter.",
+		Description: "Get token usage for an arbitrary time window with optional model filter. Synthetic-model entries are excluded.",
 		InputSchema: map[string]any{
 			"type":     "object",
 			"required": []string{"window"},
@@ -221,7 +221,7 @@ func (c *sessionContext) handleGetUsageByWindow(args json.RawMessage) (*ToolCall
 		}
 	}
 	if params.Window == "" {
-		return nil, fmt.Errorf("window is required")
+		return nil, NewParamError("window is required")
 	}
 
 	return c.usageByWindow(params.Window, params.ModelGlob)
@@ -232,9 +232,12 @@ func (c *sessionContext) handleGetUsageByWindow(args json.RawMessage) (*ToolCall
 // and emits the canonical {window, since, total_tokens, session_count, by_model}
 // JSON shape.
 func (c *sessionContext) usageByWindow(window, modelGlob string) (*ToolCallResult, error) {
+	// display.ParseWindow already returns "invalid window: <q> (expected ...)"
+	// — propagating it as ParamError without an extra prefix avoids the
+	// double "invalid window: invalid window:" stutter.
 	since, err := display.ParseWindow(window, time.Now())
 	if err != nil {
-		return nil, fmt.Errorf("invalid window: %w", err)
+		return nil, NewParamError(err.Error())
 	}
 
 	entries, _, err := loadAllEntries(c.disc, c.readerFactory, c.log)

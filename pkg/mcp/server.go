@@ -3,6 +3,7 @@ package mcp
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -135,6 +136,10 @@ func (s *Server) handleToolsCall(req *Request) *Response {
 
 	result, err := s.tools.Call(params.Name, params.Arguments)
 	if err != nil {
+		var paramErr *ParamError
+		if errors.As(err, &paramErr) {
+			return s.errorResponse(req.ID, ErrCodeInvalidParams, paramErr.Error(), nil)
+		}
 		return s.errorResponse(req.ID, ErrCodeInternal, err.Error(), nil)
 	}
 

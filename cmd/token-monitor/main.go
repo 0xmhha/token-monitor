@@ -291,16 +291,29 @@ Query Command Flags:
   -format     Output format (hook)
 
 Status Command Flags:
-  -current    Auto-detect current session
-  -session    Specify session ID directly
-  -compact    Minimal output (~13 chars)
-  -full       Verbose output (~75 chars)
-  -no-emoji   Omit emoji prefix
-  -watch      Continuous output mode
-  -interval   Watch refresh interval (default: 5s)
+  -current      Auto-detect current session
+  -session      Specify session ID directly
+  -compact      Minimal output (~13 chars)
+  -full         Verbose output (~75 chars)
+  -no-emoji     Omit emoji prefix
+  -watch        Continuous output mode (incompatible with --breakdown)
+  -interval     Watch refresh interval (default: 5s)
+  -from-stdin   Read Claude Code statusline JSON envelope from stdin
+  -breakdown    Cross-session compact line: 'day:total | model:total ...'
+  -window       Time window: today, all, Nd, Nh (default: today)
+  -model-glob   Filter by model glob pattern (e.g. '*sonnet*')
 
 Serve Command Flags:
   -stdio      Use stdio for MCP communication (default: true)
+
+Install Command:
+  install statusline   Patch ~/.claude/statusline-command.sh with managed block
+  install mcp          Register MCP server (--global to ~/.claude.json or --project to ./.mcp.json)
+  install hook         Register PostToolUse hook in ~/.claude/settings.json
+  install all          Run statusline + mcp + hook in sequence
+  install --uninstall-all
+                       Remove all integrations
+  Common flags: --dry-run, --uninstall, --print (statusline), --absolute (mcp)
 
 Examples:
   # Show overall statistics

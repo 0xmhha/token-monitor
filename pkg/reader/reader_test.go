@@ -552,9 +552,9 @@ func TestIsRetryable(t *testing.T) {
 	r := &reader{}
 
 	tests := []struct {
-		name    string
-		err     error
-		want    bool
+		name string
+		err  error
+		want bool
 	}{
 		{"file locked - retryable", ErrFileLocked, true},
 		{"file not found - retryable", ErrFileNotFound, true},

@@ -1,8 +1,9 @@
 {
   "mcpServers": {
     "token-monitor": {
-      "command": "token-monitor",
-      "args": ["serve", "--stdio"]
+      "_managed_by": "token-monitor",
+      "args": ["serve", "--stdio"],
+      "command": "token-monitor"
     }
   }
 }

@@ -210,7 +210,7 @@ func (c *sessionContext) resolveSession(sessionID string) (discovery.SessionFile
 		}
 	}
 
-	return discovery.SessionFile{}, fmt.Errorf("session not found: %s", sessionID)
+	return discovery.SessionFile{}, NewParamError(fmt.Sprintf("session not found: %s", sessionID))
 }
 
 // textResult encodes a value as JSON and wraps it in a ToolCallResult.
@@ -289,12 +289,12 @@ func (c *sessionContext) handleGetBurnRate(args json.RawMessage) (*ToolCallResul
 
 	rate := agg.BurnRate(sf.SessionID, window)
 	return textResult(map[string]any{
-		"session_id":     sf.SessionID,
-		"tokens_per_min": rate.TokensPerMinute,
+		"session_id":      sf.SessionID,
+		"tokens_per_min":  rate.TokensPerMinute,
 		"tokens_per_hour": rate.TokensPerHour,
-		"input_per_min":  rate.InputTokensPerMinute,
-		"output_per_min": rate.OutputTokensPerMinute,
-		"entry_count":    rate.EntryCount,
+		"input_per_min":   rate.InputTokensPerMinute,
+		"output_per_min":  rate.OutputTokensPerMinute,
+		"entry_count":     rate.EntryCount,
 	})
 }
 
@@ -389,7 +389,7 @@ func (c *sessionContext) handleGetSessionDetail(args json.RawMessage) (*ToolCall
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 	if params.SessionID == "" {
-		return nil, fmt.Errorf("session_id is required")
+		return nil, NewParamError("session_id is required")
 	}
 
 	sf, err := c.resolveSession(params.SessionID)
@@ -449,7 +449,7 @@ func (c *sessionContext) handleCompareSessions(args json.RawMessage) (*ToolCallR
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 	if params.SessionA == "" || params.SessionB == "" {
-		return nil, fmt.Errorf("session_a and session_b are required")
+		return nil, NewParamError("session_a and session_b are required")
 	}
 
 	sfA, err := c.resolveSession(params.SessionA)

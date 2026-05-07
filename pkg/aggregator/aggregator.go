@@ -13,10 +13,10 @@ type aggregator struct {
 	config Config
 
 	mu      sync.RWMutex
-	counts  []int               // All token counts for percentile calculation
-	stats   Statistics          // Overall statistics
-	groups  map[string]*group   // Grouped statistics
-	entries []TimestampedEntry  // All entries for burn rate calculation
+	counts  []int              // All token counts for percentile calculation
+	stats   Statistics         // Overall statistics
+	groups  map[string]*group  // Grouped statistics
+	entries []TimestampedEntry // All entries for burn rate calculation
 }
 
 // group holds statistics for a specific dimension combination.

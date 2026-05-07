@@ -110,15 +110,15 @@ func TestParseWindow_MalformedReturnsError(t *testing.T) {
 	now := time.Date(2026, 5, 6, 12, 0, 0, 0, time.UTC)
 
 	cases := []string{
-		"abcd",   // no recognized format
-		"7",      // missing unit
-		"7x",     // unknown unit
-		"-1d",    // negative
-		"1.5h",   // non-integer
-		"d",      // empty number
-		"h",      // empty number
-		"0d",     // zero is not a meaningful window
-		"week",   // unsupported unit
+		"abcd", // no recognized format
+		"7",    // missing unit
+		"7x",   // unknown unit
+		"-1d",  // negative
+		"1.5h", // non-integer
+		"d",    // empty number
+		"h",    // empty number
+		"0d",   // zero is not a meaningful window
+		"week", // unsupported unit
 	}
 	for _, s := range cases {
 		t.Run(s, func(t *testing.T) {

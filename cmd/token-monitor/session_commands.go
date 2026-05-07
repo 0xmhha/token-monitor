@@ -191,13 +191,13 @@ type displaySession struct {
 
 // listOptions holds parsed options for the list command.
 type listOptions struct {
-	sortBy      string
-	showAll     bool
-	project     string
-	from        string
-	to          string
-	minTokens   int
-	showTokens  bool
+	sortBy     string
+	showAll    bool
+	project    string
+	from       string
+	to         string
+	minTokens  int
+	showTokens bool
 }
 
 // runList lists all sessions with metadata.

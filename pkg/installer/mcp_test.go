@@ -80,7 +80,7 @@ func TestInstallMCP_PreservesUnrelatedKeys(t *testing.T) {
 
 	path := filepath.Join(home, ".claude.json")
 	initial := map[string]any{
-		"theme":   "dark",
+		"theme":     "dark",
 		"telemetry": map[string]any{"enabled": false},
 	}
 	data, _ := json.Marshal(initial)

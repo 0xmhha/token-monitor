@@ -156,8 +156,8 @@ func makeSessionFile(t *testing.T, sessionID string, inputTokens, outputTokens i
 			"id":    "msg_test",
 			"model": "claude-3-5-sonnet-20241022",
 			"usage": map[string]any{
-				"input_tokens":               inputTokens,
-				"output_tokens":              outputTokens,
+				"input_tokens":                inputTokens,
+				"output_tokens":               outputTokens,
 				"cache_creation_input_tokens": 0,
 				"cache_read_input_tokens":     0,
 			},

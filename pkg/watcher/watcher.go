@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/0xmhha/token-monitor/pkg/logger"
+	"github.com/fsnotify/fsnotify"
 )
 
 // watcher implements the Watcher interface using fsnotify.
