@@ -27,7 +27,9 @@ Claude Code consumes tokens with every interaction, but there's no built-in way 
 | **Billing Block Tracking** | 5-hour UTC billing window detection with time remaining |
 | **Claude Code Integration** | PostToolUse hooks, MCP server, compact status line output |
 | **Fast Query** | Single-metric lookup in <100ms for hook/script use |
-| **MCP Server** | JSON-RPC 2.0 server exposing 6 tools for Claude Code |
+| **MCP Server** | JSON-RPC 2.0 server exposing 9 tools for Claude Code |
+| **Cross-Session Breakdown** | Aggregate tokens across all sessions, grouped by model (`status --breakdown`, MCP `get_today_usage`) |
+| **Install Automation** | One command to wire up statusline + MCP + hook on any machine (`token-monitor install all`) |
 | **Multiple Formats** | Table, JSON, simple text, compact, and hook output |
 
 ## Installation
@@ -143,9 +145,40 @@ Exposes token data as tools for Claude Code via JSON-RPC 2.0 over stdio.
 token-monitor serve --stdio
 ```
 
-**Available tools**: `get_token_usage`, `get_burn_rate`, `get_billing_block`, `list_sessions`, `get_session_detail`, `compare_sessions`
+**Available tools** (9):
+- Per-session: `get_token_usage`, `get_burn_rate`, `get_billing_block`, `get_session_detail`
+- Cross-session breakdown (v0.2): `get_session_breakdown`, `get_today_usage`, `get_usage_by_window`
+- Listing/comparison: `list_sessions`, `compare_sessions`
 
 ## Claude Code Integration
+
+### Quickest path (v0.2): `install` subcommand
+
+After installing the binary, register everything with one command:
+
+```bash
+# Install statusline + MCP server + PostToolUse hook (idempotent)
+token-monitor install all
+
+# Or install components individually
+token-monitor install statusline       # patches ~/.claude/statusline-command.sh
+token-monitor install mcp --global     # registers in ~/.claude.json
+token-monitor install mcp --project    # registers in ./.mcp.json (CWD)
+token-monitor install hook             # registers PostToolUse hook
+
+# Preview without writing
+token-monitor install all --dry-run
+
+# Print just the statusline snippet (for manual integration)
+token-monitor install statusline --print
+
+# Reverse everything
+token-monitor install --uninstall-all
+```
+
+All install operations are **atomic** (rename pattern), refuse to overwrite user-authored entries, and create `*.bak.YYYYMMDD-HHMMSS` backups before writing.
+
+### Manual integration
 
 Choose one (or both) depending on your needs:
 

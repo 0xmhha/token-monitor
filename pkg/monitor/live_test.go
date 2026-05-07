@@ -6,26 +6,26 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/0xmhha/token-monitor/pkg/discovery"
 	"github.com/0xmhha/token-monitor/pkg/logger"
 	"github.com/0xmhha/token-monitor/pkg/parser"
 	"github.com/0xmhha/token-monitor/pkg/watcher"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockWatcher implements the watcher.Watcher interface for testing.
 type mockWatcher struct {
-	mu        sync.Mutex
-	started   bool
-	stopped   bool
-	closed    bool
-	paths     []string
-	events    chan watcher.Event
-	errors    chan error
-	startErr  error
-	stopErr   error
-	closeErr  error
+	mu       sync.Mutex
+	started  bool
+	stopped  bool
+	closed   bool
+	paths    []string
+	events   chan watcher.Event
+	errors   chan error
+	startErr error
+	stopErr  error
+	closeErr error
 }
 
 func newMockWatcher() *mockWatcher {

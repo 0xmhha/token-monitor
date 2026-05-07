@@ -58,7 +58,13 @@ type sessionContext struct {
 	log           Logger
 }
 
-// RegisterTokenTools registers all 6 token monitoring tools into the registry.
+// RegisterTokenTools registers all token monitoring tools into the registry.
+//
+// Currently registers 9 tools, split into two groups:
+//   - Single-session: get_token_usage, get_burn_rate, get_billing_block,
+//     list_sessions, get_session_detail, compare_sessions
+//   - Cross-session breakdown (v0.2): get_session_breakdown,
+//     get_today_usage, get_usage_by_window
 func RegisterTokenTools(registry *ToolRegistry, disc discovery.Discoverer, readerFactory func() (reader.Reader, error), log Logger) {
 	ctx := &sessionContext{disc: disc, readerFactory: readerFactory, log: log}
 
@@ -68,6 +74,11 @@ func RegisterTokenTools(registry *ToolRegistry, disc discovery.Discoverer, reade
 	registry.Register(toolListSessions(), ctx.handleListSessions)
 	registry.Register(toolGetSessionDetail(), ctx.handleGetSessionDetail)
 	registry.Register(toolCompareSessions(), ctx.handleCompareSessions)
+
+	// v0.2 cross-session breakdown tools.
+	registry.Register(toolGetSessionBreakdown(), ctx.handleGetSessionBreakdown)
+	registry.Register(toolGetTodayUsage(), ctx.handleGetTodayUsage)
+	registry.Register(toolGetUsageByWindow(), ctx.handleGetUsageByWindow)
 }
 
 // --- Tool definitions ---
@@ -199,7 +210,7 @@ func (c *sessionContext) resolveSession(sessionID string) (discovery.SessionFile
 		}
 	}
 
-	return discovery.SessionFile{}, fmt.Errorf("session not found: %s", sessionID)
+	return discovery.SessionFile{}, NewParamError(fmt.Sprintf("session not found: %s", sessionID))
 }
 
 // textResult encodes a value as JSON and wraps it in a ToolCallResult.
@@ -278,12 +289,12 @@ func (c *sessionContext) handleGetBurnRate(args json.RawMessage) (*ToolCallResul
 
 	rate := agg.BurnRate(sf.SessionID, window)
 	return textResult(map[string]any{
-		"session_id":     sf.SessionID,
-		"tokens_per_min": rate.TokensPerMinute,
+		"session_id":      sf.SessionID,
+		"tokens_per_min":  rate.TokensPerMinute,
 		"tokens_per_hour": rate.TokensPerHour,
-		"input_per_min":  rate.InputTokensPerMinute,
-		"output_per_min": rate.OutputTokensPerMinute,
-		"entry_count":    rate.EntryCount,
+		"input_per_min":   rate.InputTokensPerMinute,
+		"output_per_min":  rate.OutputTokensPerMinute,
+		"entry_count":     rate.EntryCount,
 	})
 }
 
@@ -378,7 +389,7 @@ func (c *sessionContext) handleGetSessionDetail(args json.RawMessage) (*ToolCall
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 	if params.SessionID == "" {
-		return nil, fmt.Errorf("session_id is required")
+		return nil, NewParamError("session_id is required")
 	}
 
 	sf, err := c.resolveSession(params.SessionID)
@@ -438,7 +449,7 @@ func (c *sessionContext) handleCompareSessions(args json.RawMessage) (*ToolCallR
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 	if params.SessionA == "" || params.SessionB == "" {
-		return nil, fmt.Errorf("session_a and session_b are required")
+		return nil, NewParamError("session_a and session_b are required")
 	}
 
 	sfA, err := c.resolveSession(params.SessionA)

@@ -90,7 +90,7 @@ func TestCostBreakdown(t *testing.T) {
 
 	input, output, cacheWrite, cacheRead := CostBreakdown(a)
 
-	assert.InDelta(t, 0.3, input, 0.01)      // 100K * 3 / 1M
+	assert.InDelta(t, 0.3, input, 0.01)       // 100K * 3 / 1M
 	assert.InDelta(t, 0.75, output, 0.01)     // 50K * 15 / 1M
 	assert.InDelta(t, 0.75, cacheWrite, 0.01) // 200K * 3.75 / 1M
 	assert.InDelta(t, 0.15, cacheRead, 0.01)  // 500K * 0.30 / 1M

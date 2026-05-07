@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/0xmhha/token-monitor/pkg/logger"
 	"github.com/0xmhha/token-monitor/pkg/parser"
 	"github.com/0xmhha/token-monitor/pkg/reader"
+	"github.com/0xmhha/token-monitor/pkg/sessionloader"
 )
 
 // statusCommand outputs a compact, formatted status line for Claude Code's status display.
@@ -29,6 +32,10 @@ type statusCommand struct {
 	noEmoji    bool
 	watch      bool
 	interval   time.Duration
+	fromStdin  bool   // --from-stdin: read Claude Code's statusline JSON envelope from stdin
+	breakdown  bool   // --breakdown: emit cross-session day:total | model:total compact line
+	window     string // --window: today, all, Nd, Nh (default "today")
+	modelGlob  string // --model-glob: filter by model glob, e.g. "*sonnet*"
 	globalOpts globalOptions
 }
 
@@ -43,6 +50,38 @@ type statusData struct {
 
 // Execute runs the status command.
 func (c *statusCommand) Execute() error {
+	// Reject incompatible flag combinations up front so the caller gets a
+	// clear error instead of silently observing one flag dropped. The
+	// breakdown path aggregates across every session in the window, so
+	// pinning to a single session (--current / --session) or animating it
+	// in --watch mode are both nonsensical.
+	if c.breakdown && c.watch {
+		return fmt.Errorf("--watch and --breakdown are mutually exclusive")
+	}
+	if c.breakdown && (c.current || c.sessionID != "") {
+		return fmt.Errorf("--breakdown aggregates across all sessions; remove --current/--session")
+	}
+
+	// Reading stdin is only meaningful when Claude Code is invoking us
+	// with its statusline JSON envelope. The session_id it provides
+	// pins single-session output to the exact session the user is
+	// currently in; without it, we fall through to discovery's
+	// "most recently modified" heuristic.
+	//
+	// For the cross-session --breakdown mode the session_id is NOT used
+	// to filter (the whole point of breakdown is to sum across every
+	// session in the window) — but we still drain stdin so Claude Code's
+	// statusline pipe doesn't see a SIGPIPE-style oddity on its end.
+	if c.fromStdin {
+		in := readStatuslineInput()
+		if !c.breakdown && in != nil && in.SessionID != "" && c.sessionID == "" {
+			c.sessionID = in.SessionID
+		}
+	}
+
+	if c.breakdown {
+		return c.printBreakdown()
+	}
 	if c.watch {
 		return c.runWatch()
 	}
@@ -56,6 +95,36 @@ func (c *statusCommand) printOnce() error {
 		return err
 	}
 	fmt.Println(c.format(data))
+	return nil
+}
+
+// printBreakdown collects entries from all (or one) session, applies the
+// time window and model glob filters, and prints a single compact line
+// like:
+//
+//	day:340K | son:128K | opus:212K
+//
+// The total ("day" or whatever the window header) comes first, followed by
+// per-model abbreviations sorted alphabetically.
+func (c *statusCommand) printBreakdown() error {
+	entries, err := c.collectEntries()
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	since, err := display.ParseWindow(c.window, now)
+	if err != nil {
+		return err
+	}
+
+	// FilterSince treats a zero cutoff as "include all" (window=all),
+	// so we can pass `since` through unconditionally.
+	filtered := aggregator.FilterSince(entries, since)
+	filtered = aggregator.FilterByModelGlob(filtered, c.modelGlob)
+	breakdown := aggregator.BreakdownByModel(filtered)
+
+	fmt.Println(formatBreakdown(c.window, breakdown))
 	return nil
 }
 
@@ -101,43 +170,18 @@ func (c *statusCommand) printWatchLine(isTerminal bool, first bool) {
 	}
 }
 
-// collect resolves the target session(s) and aggregates token data.
+// collect resolves the target session(s) and aggregates token data
+// for the legacy single-line status output. Built on top of collectEntries
+// so the reader plumbing lives in one place.
 func (c *statusCommand) collect() (statusData, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return statusData{}, fmt.Errorf("failed to load config: %w", err)
-	}
-
-	log := c.buildLogger(cfg)
-	disc := discovery.New(cfg.ClaudeConfigDirs, log)
-
-	sessions, err := c.resolveSessions(disc)
+	entries, err := c.collectEntries()
 	if err != nil {
 		return statusData{}, err
 	}
 
-	posStore := reader.NewMemoryPositionStore()
-	r, err := reader.New(reader.Config{
-		PositionStore: posStore,
-		Parser:        parser.New(),
-	}, log)
-	if err != nil {
-		return statusData{}, fmt.Errorf("failed to create reader: %w", err)
-	}
-	defer r.Close() //nolint:errcheck
-
 	agg := aggregator.New(aggregator.Config{})
-	ctx := context.Background()
-
-	for _, sess := range sessions {
-		entries, _, readErr := r.ReadFrom(ctx, sess.FilePath, 0)
-		if readErr != nil {
-			log.Warn("failed to read session", "session", sess.SessionID, "error", readErr)
-			continue
-		}
-		for _, entry := range entries {
-			agg.Add(entry)
-		}
+	for _, entry := range entries {
+		agg.Add(entry)
 	}
 
 	stats := agg.Stats()
@@ -159,6 +203,36 @@ func (c *statusCommand) collect() (statusData, error) {
 		ratePerMin:   burnRate.TokensPerMinute,
 		blockRemain:  remaining,
 	}, nil
+}
+
+// collectEntries resolves the target session(s) and returns the raw
+// usage entries without aggregation. The breakdown path needs the raw
+// stream so it can apply window + glob filters before grouping.
+//
+// When sessionID is empty (typical breakdown case: "all sessions today"),
+// this discovers every session under the configured Claude config dirs.
+// Per-session read errors are logged and skipped via pkg/sessionloader.
+func (c *statusCommand) collectEntries() ([]parser.UsageEntry, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	log := c.buildLogger(cfg)
+	disc := discovery.New(cfg.ClaudeConfigDirs, log)
+
+	sessions, err := c.resolveSessions(disc)
+	if err != nil {
+		return nil, err
+	}
+
+	factory := func() (reader.Reader, error) {
+		return reader.New(reader.Config{
+			PositionStore: reader.NewMemoryPositionStore(),
+			Parser:        parser.New(),
+		}, log)
+	}
+	return sessionloader.LoadEntries(context.Background(), sessions, factory, log)
 }
 
 // resolveSessions returns the session files to aggregate.
@@ -260,6 +334,10 @@ func runStatusCommand(globalOpts globalOptions, args []string) error {
 	noEmoji := fs.Bool("no-emoji", false, "omit emoji from output")
 	watch := fs.Bool("watch", false, "continuous output mode")
 	interval := fs.Duration("interval", 5*time.Second, "watch refresh interval")
+	fromStdin := fs.Bool("from-stdin", false, "read Claude Code statusline JSON envelope from stdin (session_id pins --current; ignored under --breakdown)")
+	breakdown := fs.Bool("breakdown", false, "cross-session compact line: 'day:total | model:total ...' (incompatible with --current/--session/--watch)")
+	window := fs.String("window", "today", "time window for --breakdown: today, all, Nd, or Nh")
+	modelGlob := fs.String("model-glob", "", "filter --breakdown by model glob, e.g. '*sonnet*'")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -273,8 +351,90 @@ func runStatusCommand(globalOpts globalOptions, args []string) error {
 		noEmoji:    *noEmoji,
 		watch:      *watch,
 		interval:   *interval,
+		fromStdin:  *fromStdin,
+		breakdown:  *breakdown,
+		window:     *window,
+		modelGlob:  *modelGlob,
 		globalOpts: globalOpts,
 	}
 
 	return cmd.Execute()
+}
+
+// formatBreakdown renders a single compact line:
+//
+//	<window-label>:<total> | <abbr1>:<total1> | <abbr2>:<total2>
+//
+// The window label is derived from the window string ("today" → "day",
+// "7d" → "7d", "all" → "all", "" → "day"). Per-model entries are sorted
+// alphabetically by abbreviation for deterministic output.
+//
+// Distinct exact-model identifiers that share an abbreviation are merged
+// (e.g. claude-opus-4-7 + claude-opus-4-1 → one "opus:" row). This keeps
+// the compact line readable when several minor versions of the same
+// family ran in the window.
+//
+// When the breakdown map is empty (no entries matched the window or
+// glob), the line collapses to "<label>:0".
+func formatBreakdown(window string, breakdown map[string]aggregator.ModelBreakdown) string {
+	total := 0
+	byAbbr := make(map[string]int, len(breakdown))
+	for _, b := range breakdown {
+		total += b.TotalTokens
+		byAbbr[abbreviateModel(b.Model)] += b.TotalTokens
+	}
+
+	abbrs := make([]string, 0, len(byAbbr))
+	for a := range byAbbr {
+		abbrs = append(abbrs, a)
+	}
+	sort.Strings(abbrs)
+
+	var sb strings.Builder
+	sb.WriteString(windowLabel(window))
+	sb.WriteByte(':')
+	sb.WriteString(display.FormatCompact(total))
+	for _, a := range abbrs {
+		sb.WriteString(" | ")
+		sb.WriteString(a)
+		sb.WriteByte(':')
+		sb.WriteString(display.FormatCompact(byAbbr[a]))
+	}
+	return sb.String()
+}
+
+// windowLabel maps the window flag to a short display label.
+// "today" / "" → "day"; everything else passes through trimmed and lowercased.
+func windowLabel(window string) string {
+	w := strings.ToLower(strings.TrimSpace(window))
+	if w == "" || w == "today" {
+		return "day"
+	}
+	return w
+}
+
+// abbreviateModel collapses a model identifier to a 3-4 character tag.
+// Recognized substrings win regardless of position:
+//
+//	"*sonnet*" → "son"
+//	"*opus*"   → "opus"
+//	"*haiku*"  → "hai"
+//
+// Otherwise the first up-to-4 characters of the model are used. The
+// abbreviation is always lowercase so sorting in formatBreakdown is
+// stable across mixed-case model names.
+func abbreviateModel(model string) string {
+	m := strings.ToLower(model)
+	switch {
+	case strings.Contains(m, "sonnet"):
+		return "son"
+	case strings.Contains(m, "opus"):
+		return "opus"
+	case strings.Contains(m, "haiku"):
+		return "hai"
+	}
+	if len(m) > 4 {
+		return m[:4]
+	}
+	return m
 }

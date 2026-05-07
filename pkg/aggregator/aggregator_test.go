@@ -630,7 +630,6 @@ func TestGroupedStats_ByHour(t *testing.T) {
 	}
 }
 
-
 func TestAdd_CacheTokens(t *testing.T) {
 	t.Parallel()
 

@@ -11,10 +11,10 @@ import (
 
 // statsView renders aggregated statistics.
 type statsView struct {
-	stats      *aggregator.Statistics
+	stats       *aggregator.Statistics
 	topSessions []aggregator.SessionStats
-	width      int
-	height     int
+	width       int
+	height      int
 }
 
 func newStatsView() statsView {

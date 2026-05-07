@@ -127,13 +127,13 @@ func (c *sessionCommand) displayCompareJSON(a, b analysis.SessionAnalysis) error
 		"session_a": buildJSONAnalysis(a),
 		"session_b": buildJSONAnalysis(b),
 		"diff": map[string]any{
-			"total_tokens":  a.TotalTokens - b.TotalTokens,
-			"input_tokens":  a.InputTokens - b.InputTokens,
-			"output_tokens": a.OutputTokens - b.OutputTokens,
+			"total_tokens":   a.TotalTokens - b.TotalTokens,
+			"input_tokens":   a.InputTokens - b.InputTokens,
+			"output_tokens":  a.OutputTokens - b.OutputTokens,
 			"cache_creation": a.CacheCreation - b.CacheCreation,
-			"cache_read":    a.CacheRead - b.CacheRead,
-			"entry_count":   a.EntryCount - b.EntryCount,
-			"cost_usd":      a.CostUSD - b.CostUSD,
+			"cache_read":     a.CacheRead - b.CacheRead,
+			"entry_count":    a.EntryCount - b.EntryCount,
+			"cost_usd":       a.CostUSD - b.CostUSD,
 		},
 	}
 

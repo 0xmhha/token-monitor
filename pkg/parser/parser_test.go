@@ -449,9 +449,9 @@ func TestUsageEntryValidate(t *testing.T) {
 
 func TestParseError(t *testing.T) {
 	tests := []struct {
-		name     string
-		err      *ParseError
-		wantMsg  string
+		name       string
+		err        *ParseError
+		wantMsg    string
 		wantUnwrap error
 	}{
 		{
