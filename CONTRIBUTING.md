@@ -108,15 +108,20 @@ token-monitor/
 │   ├── config/                # Configuration management
 │   ├── discovery/             # Session file discovery
 │   ├── display/               # Output formatting
+│   ├── installer/             # Claude Code integration installer (statusline, MCP, hook)
 │   ├── logger/                # Structured logging
+│   ├── mcp/                   # MCP JSON-RPC server (9 tools)
 │   ├── monitor/               # Live monitoring engine
 │   ├── parser/                # JSONL parsing
 │   ├── reader/                # Incremental file reading
 │   ├── session/               # Session metadata storage
+│   ├── sessionloader/         # Shared session-entry loader
+│   ├── tui/                   # Bubble Tea TUI dashboard
 │   └── watcher/               # File system watching
 ├── docs/                       # Documentation
-│   ├── ARCHITECTURE.md        # Technical architecture
-│   └── roadmap.md             # Development roadmap
+│   ├── architecture.md        # Technical architecture
+│   ├── roadmap.md             # Development roadmap
+│   └── TESTING.md             # Testing guide
 ├── .github/
 │   └── workflows/             # CI/CD pipelines
 ├── .golangci.yml              # Linter configuration

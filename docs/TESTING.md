@@ -774,7 +774,7 @@ func TestGoroutineCompletion(t *testing.T) {
 ### Further Reading
 
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Development guide
-- [ARCHITECTURE.md](ARCHITECTURE.md) - System design
+- [architecture.md](architecture.md) - System design
 
 ---
 
